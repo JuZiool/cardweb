@@ -6,10 +6,11 @@ import { fileURLToPath } from 'node:url';
 
 import { openDb, listShops, insertShop, getShopByToken, deleteShop,
   tierSummary, productsByTier, priceHistory, productSummary, productsByProductKey,
-  searchProducts, reclassifyAll, getDb } from './src/db.js';
+  searchProducts, reclassifyAll, getDb, productTrend } from './src/db.js';
 import { allTiers, tierMeta } from './src/classify.js';
 import { allProducts, allGroups, getProduct, WARRANTY_LABEL, classifyProduct, detectConflict } from './src/products.js';
 import { parseToken, fetchShopInfo, FetchError } from './src/fetcher.js';
+import { clusterProducts } from './src/cluster.js';
 import { Scheduler } from './src/scheduler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -303,9 +304,31 @@ async function handleApi(req, res, url) {
 
   const historyMatch = pathname.match(/^\/api\/history\/(\d+)\/([\w-]+)$/);
   if (historyMatch && method === 'GET') {
-    return json(res, 200, {
-      history: priceHistory(Number(historyMatch[1]), historyMatch[2]),
+    return json(res, 200, priceHistory(Number(historyMatch[1]), historyMatch[2]));
+  }
+
+  // ---- 同款聚类 ----
+  const clusterMatch = pathname.match(/^\/api\/products\/([a-z0-9-]+)\/clusters$/);
+  if (clusterMatch && method === 'GET') {
+    const key = clusterMatch[1];
+    const meta = getProduct(key);
+    if (!meta) return json(res, 404, { error: '未知商品' });
+    const rows = productsByProductKey(key, {
+      inStockOnly: q.get('in_stock') === '1',
+      sort: 'price',
     });
+    const clusters = clusterProducts(rows.map((o) => ({ ...o, productKey: key })));
+    return json(res, 200, {
+      product: { key: meta.key, name: meta.name, spec: meta.spec },
+      total: rows.length,
+      clusters,
+    });
+  }
+
+  const trendMatch = pathname.match(/^\/api\/products\/([a-z0-9-]+)\/trend$/);
+  if (trendMatch && method === 'GET') {
+    const hours = Math.min(Number(q.get('hours')) || 48, 24 * 30);
+    return json(res, 200, productTrend(trendMatch[1], { hours }));
   }
 
   return json(res, 404, { error: 'not found' });

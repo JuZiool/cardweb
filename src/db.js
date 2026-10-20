@@ -222,12 +222,43 @@ export function productsByTier(tier, { inStockOnly = false, sort = 'price' } = {
   `).all(tier);
 }
 
-export function priceHistory(shopId, goodsKey, limit = 100) {
-  return getDb().prepare(`
-    SELECT price, stock, fetched_at FROM price_log
+export function priceHistory(shopId, goodsKey, limit = 200) {
+  const rows = getDb().prepare(`
+    SELECT price, stock, fetched_at AS fetchedAt FROM price_log
     WHERE shop_id = ? AND goods_key = ?
-    ORDER BY fetched_at DESC LIMIT ?
+    ORDER BY fetched_at ASC LIMIT ?
   `).all(shopId, goodsKey, limit);
+  return { points: rows, stats: historyStats(rows) };
+}
+
+function historyStats(rows) {
+  if (!rows.length) return null;
+  const prices = rows.map((r) => r.price);
+  const first = prices[0];
+  const last = prices[prices.length - 1];
+  return {
+    current: last,
+    first,
+    min: Math.min(...prices),
+    max: Math.max(...prices),
+    change: last - first,
+    changePct: first > 0 ? ((last - first) / first) * 100 : 0,
+    points: rows.length,
+  };
+}
+
+/** 某标准商品的价格走势：按时间桶取该档最低价 */
+export function productTrend(productKey, { hours = 48 } = {}) {
+  const since = Date.now() - hours * 3600_000;
+  const rows = getDb().prepare(`
+    SELECT l.fetched_at AS t, MIN(l.price) AS price
+    FROM price_log l
+    JOIN products p ON p.shop_id = l.shop_id AND p.goods_key = l.goods_key
+    WHERE p.product_key = ? AND l.fetched_at >= ? AND l.price > 0
+    GROUP BY l.fetched_at
+    ORDER BY l.fetched_at ASC
+  `).all(productKey, since);
+  return { points: rows, stats: historyStats(rows) };
 }
 
 /**

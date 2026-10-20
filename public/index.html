@@ -243,6 +243,37 @@
   }
   .warn-tag.hi { background: #fbeae9; color: #a4463f; border-color: #f0cfcc; }
 
+
+  /* ---------- 同款聚合 ---------- */
+  .cluster-head td {
+    background: var(--panel-2); border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-soft); padding: 8px 10px;
+  }
+  .cl-label { font-weight: 600; color: var(--text); font-size: 12.5px; }
+  .cl-meta { font-size: 11.5px; color: var(--text-dim); margin-left: 10px; }
+  .cl-spread {
+    float: right; font-size: 11px; padding: 1px 8px; border-radius: 999px;
+    background: #f2efe8; color: #8a8175; border: 1px solid #e4ded1;
+  }
+  .cl-spread.wide { background: #fdf3df; color: #94681f; border-color: #efdfbb; }
+
+  /* ---------- 走势图 ---------- */
+  .spark-wrap { white-space: normal; line-height: 0; }
+  .drawer-body .spark { width: 100%; height: 110px; display: block; margin: 4px 0 2px; }
+  .spark-line { fill: none; stroke: var(--accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+  .spark-area { fill: rgba(169, 118, 47, .12); stroke: none; }
+  .spark circle { fill: var(--accent); }
+  .spark { display: block; }
+  .spark-axis {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--text-faint); margin-bottom: 4px;
+  }
+  .spark-empty { font-size: 12px; color: var(--text-faint); padding: 10px 0; }
+  .spark-stat { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+  .dir-up { color: var(--danger); }
+  .dir-down { color: var(--ok); }
+  .dir-flat { color: var(--text-dim); }
+
   .act { text-align: right; white-space: nowrap; }
   .go {
     display: inline-block; font-size: 11px; padding: 2px 7px;
@@ -352,6 +383,7 @@
       <span id="tierMeta" class="meta"></span>
       <span class="spacer"></span>
       <label class="toggle"><input type="checkbox" id="hideZero" checked /> 隐藏缺货</label>
+      <label class="toggle"><input type="checkbox" id="groupSame" /> 同款聚合</label>
     </div>
     <div id="noteBar" class="note-bar" style="display:none"></div>
     <div class="table-wrap">
@@ -394,6 +426,7 @@ const state = {
   sortDesc: false,
   keyword: '',
   hideZero: true,
+  groupSame: false,
   shops: [],
   scheduler: null,
   collapsed: (() => {
@@ -552,6 +585,8 @@ async function renderOffers() {
   if (notes.length) { note.style.display = 'block'; note.textContent = '⚠ ' + notes.join('　｜　'); }
   else note.style.display = 'none';
 
+  if (state.groupSame) return renderClusters(p);
+
   const params = new URLSearchParams({
     in_stock: state.hideZero ? '1' : '0',
     sort: state.sort === 'shop' ? 'price' : state.sort,
@@ -684,6 +719,87 @@ async function renderSearch() {
 }
 
 
+
+// ---------- 同款聚合视图 ----------
+async function renderClusters(meta) {
+  const tbody = $('#tbody');
+  const empty = $('#empty');
+  const params = new URLSearchParams({ in_stock: state.hideZero ? '1' : '0' });
+  const data = await api(`/api/products/${state.activeKey}/clusters?${params}`);
+  const labels = state.warrantyLabels;
+
+  $('#tierMeta').textContent = `${data.total} 条 · 聚为 ${data.clusters.length} 组同款`;
+
+  tbody.innerHTML = data.clusters.map((c) => {
+    const rows = c.items.map((o) => {
+      const zero = !o.stock;
+      const w = o.warranty || 'unknown';
+      return `<tr class="${zero ? 'out-of-stock' : ''}">
+        <td class="name"><a href="#" data-detail="${o.id}">${esc(o.name)}</a></td>
+        <td class="shop">${esc(o.shopName)}</td>
+        <td><span class="wtag ${w}">${esc(labels[w] || w)}</span></td>
+        <td><span class="price ${o.price === c.min && !zero ? 'best' : ''}">${money(o.price)}</span></td>
+        <td class="stock ${zero ? 'zero' : ''}">${zero ? '缺货' : o.stock}</td>
+        <td class="act"><a class="go" href="${esc(o.link)}" target="_blank" rel="noopener">购买</a></td>
+      </tr>`;
+    }).join('');
+
+    return `<tr class="cluster-head">
+      <td colspan="6">
+        <span class="cl-label">${esc(c.label)}</span>
+        <span class="cl-meta">${c.count} 条 · ${c.shops} 家店 · ${money(c.min)} ~ ${money(c.max)}</span>
+        <span class="cl-spread ${c.spread >= 40 ? 'wide' : ''}">价差 ${c.spread.toFixed(0)}%</span>
+      </td>
+    </tr>${rows}`;
+  }).join('');
+
+  tbody.querySelectorAll('[data-detail]').forEach((el) => {
+    el.onclick = (e) => { e.preventDefault(); openDetail(Number(el.dataset.detail)); };
+  });
+
+  if (!data.clusters.length) {
+    empty.style.display = 'block';
+    empty.innerHTML = '该档位没有可聚合的同款<br><span style="font-size:12px">至少需要 2 条报价</span>';
+  } else {
+    empty.style.display = 'none';
+  }
+}
+
+// ---------- 价格走势图 ----------
+function sparkline(points, w = 480, h = 110) {
+  if (!points || points.length < 2) {
+    return '<div class="spark-empty">暂无足够的历史数据（需要多次抓取）</div>';
+  }
+  const xs = points.map((p) => p.fetchedAt ?? p.t);
+  const ys = points.map((p) => p.price);
+  const x0 = Math.min(...xs); const x1 = Math.max(...xs);
+  // 上下留白，避免极值贴边；价格全相同时给一个虚拟跨度
+  const rawMin = Math.min(...ys); const rawMax = Math.max(...ys);
+  const spanRaw = rawMax - rawMin;
+  const pad = spanRaw > 0 ? spanRaw * 0.15 : Math.max(rawMax * 0.02, 0.5);
+  const y0 = rawMin - pad; const y1 = rawMax + pad;
+  const padX = 10; const padY = 12;
+  const spanX = x1 - x0 || 1;
+  const spanY = y1 - y0 || 1;
+  const px = (t) => padX + ((t - x0) / spanX) * (w - padX * 2);
+  const py = (v) => h - padY - ((v - y0) / spanY) * (h - padY * 2);
+
+  const line = points.map((p, i) => `${i ? 'L' : 'M'}${px(p.fetchedAt ?? p.t).toFixed(1)},${py(p.price).toFixed(1)}`).join(' ');
+  const area = `${line} L${px(xs[xs.length - 1]).toFixed(1)},${h - padY} L${px(x0).toFixed(1)},${h - padY} Z`;
+  const dots = points.map((p) => `<circle cx="${px(p.fetchedAt ?? p.t).toFixed(1)}" cy="${py(p.price).toFixed(1)}" r="2.5"/>`).join('');
+
+  return `<div class="spark-wrap"><svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <path d="${area}" class="spark-area"/>
+    <path d="${line}" class="spark-line"/>
+    ${dots}
+  </svg></div>
+  <div class="spark-axis">
+    <span>${money(rawMin)}</span>
+    <span class="mono">${points.length} 次抓取</span>
+    <span>${money(rawMax)}</span>
+  </div>`;
+}
+
 // ---------- 详情 ----------
 async function openDetail(id) {
   const mask = $('#drawerMask');
@@ -718,6 +834,21 @@ async function openDetail(id) {
     } else {
       html += '<div class="dsection-title">商品完整说明</div><div class="dtext" style="color:var(--text-faint)">该商品没有填写描述</div>';
     }
+    // 价格走势
+    try {
+      const h = await api(`/api/history/${p.shop_id}/${p.goods_key}`);
+      if (h.points && h.points.length >= 2) {
+        const st = h.stats;
+        const dir = st.change > 0 ? 'up' : st.change < 0 ? 'down' : 'flat';
+        html += `<div class="dsection-title">价格走势（${st.points} 次抓取）</div>`
+          + sparkline(h.points)
+          + `<div class="spark-stat">当前 ${money(st.current)}　·　最低 ${money(st.min)}　·　最高 ${money(st.max)}　·　`
+          + `<span class="dir-${dir}">${st.change >= 0 ? '+' : ''}${st.change.toFixed(2)}（${st.changePct.toFixed(1)}%）</span></div>`;
+      } else {
+        html += `<div class="dsection-title">价格走势</div>${sparkline(h.points)}`;
+      }
+    } catch { /* 历史不可用则跳过 */ }
+
     html += `<div class="dsection-title">原站链接</div><div><a href="${esc(p.link)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(p.link)}</a></div>`;
     body.innerHTML = html;
     body.scrollTop = 0;
@@ -764,6 +895,7 @@ $('#btnFetchAll').onclick = async () => {
 
 $('#shopUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btnAdd').click(); });
 $('#hideZero').onchange = (e) => { state.hideZero = e.target.checked; renderOffers(); };
+$('#groupSame').onchange = (e) => { state.groupSame = e.target.checked; renderOffers(); };
 
 // ---- 搜索 ----
 function applySearch(raw) {
