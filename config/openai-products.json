@@ -1433,5 +1433,11 @@
         "g.pt"
       ]
     }
-  ]
+  ],
+  "platformMeta": {
+    "key": "openai",
+    "name": "OpenAI",
+    "desc": "ChatGPT / Plus / Pro / Codex",
+    "order": 1
+  }
 }

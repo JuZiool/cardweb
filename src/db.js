@@ -247,18 +247,44 @@ function historyStats(rows) {
   };
 }
 
-/** 某标准商品的价格走势：按时间桶取该档最低价 */
-export function productTrend(productKey, { hours = 48 } = {}) {
+/**
+ * 某标准商品的最低价格走势。
+ *
+ * 一次抓取会给该档带来多条 price_log（每家店每件货各一条），
+ * 我们关心的是「这一轮抓取里，该档最低有货价是多少」。
+ * 因此按抓取轮次（时间桶）聚合，每个桶取最低价。
+ */
+export function productTrend(productKey, { hours = 168, bucketMinutes = 0 } = {}) {
   const since = Date.now() - hours * 3600_000;
   const rows = getDb().prepare(`
-    SELECT l.fetched_at AS t, MIN(l.price) AS price
+    SELECT l.fetched_at AS t, l.price, l.stock
     FROM price_log l
     JOIN products p ON p.shop_id = l.shop_id AND p.goods_key = l.goods_key
     WHERE p.product_key = ? AND l.fetched_at >= ? AND l.price > 0
-    GROUP BY l.fetched_at
     ORDER BY l.fetched_at ASC
   `).all(productKey, since);
-  return { points: rows, stats: historyStats(rows) };
+
+  if (!rows.length) return { points: [], stats: null };
+
+  // 时间桶：默认按 10 分钟聚合，避免同一轮抓取的抖动产生多个点
+  const bucketMs = (bucketMinutes || 10) * 60_000;
+  const buckets = new Map();
+  for (const r of rows) {
+    const b = Math.floor(r.t / bucketMs) * bucketMs;
+    const cur = buckets.get(b);
+    // 优先统计有货的最低；一桶内没有有货则退回全部最低
+    const usable = r.stock == null || r.stock > 0;
+    if (!cur) buckets.set(b, { t: b, price: r.price, hasStock: usable });
+    else {
+      if (usable && !cur.hasStock) { cur.price = r.price; cur.hasStock = true; }
+      else if (usable === cur.hasStock && r.price < cur.price) cur.price = r.price;
+    }
+  }
+
+  const points = [...buckets.values()]
+    .sort((a, b) => a.t - b.t)
+    .map((b) => ({ t: b.t, fetchedAt: b.t, price: b.price }));
+  return { points, stats: historyStats(points) };
 }
 
 /**

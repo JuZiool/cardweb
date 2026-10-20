@@ -108,6 +108,40 @@
     padding: 14px 16px 6px;
   }
 
+
+  /* ---------- 平台大分组 ---------- */
+  .platform-head {
+    display: flex; align-items: baseline; gap: 7px;
+    padding: 11px 14px 9px 12px;
+    background: var(--panel-3);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer; user-select: none;
+    position: sticky; top: 0; z-index: 2;
+  }
+  .platform-head:hover { background: #e9e1d3; }
+  .platform-head.ghost {
+    cursor: default; opacity: .55;
+    background: var(--panel-2);
+  }
+  .platform-head.ghost:hover { background: var(--panel-2); }
+  .pf-chev {
+    font-size: 10px; color: var(--text-faint);
+    transition: transform .16s ease; display: inline-block; width: 10px;
+  }
+  .platform-head.collapsed .pf-chev { transform: rotate(-90deg); }
+  .pf-name {
+    font-size: 12.5px; font-weight: 700; color: var(--text);
+    letter-spacing: .02em;
+  }
+  .pf-desc {
+    font-size: 10.5px; color: var(--text-faint);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* 子分组头在平台下缩进一级 */
+  .group-head.sub { padding-left: 22px; background: var(--panel-2); }
+  .group-head.sub .group-name { font-size: 11.5px; font-weight: 600; }
+
   /* ---------- 分组折叠头 ---------- */
   .group-head {
     display: flex; align-items: center; gap: 7px;
@@ -257,16 +291,31 @@
   }
   .cl-spread.wide { background: #fdf3df; color: #94681f; border-color: #efdfbb; }
 
+
+  /* ---------- 档位走势面板 ---------- */
+  .trend-panel {
+    flex: 0 0 auto; padding: 6px 16px 4px;
+    background: var(--panel); border-bottom: 1px solid var(--border);
+  }
+  .trend-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 0; }
+  .trend-title { font-size: 11.5px; font-weight: 600; color: var(--text-dim); white-space: nowrap; }
+  .trend-stat { font-size: 11px; color: var(--text-dim); flex: 1 1 auto; }
+  .trend-close {
+    padding: 0 6px; font-size: 11px; line-height: 1.4;
+    background: transparent; border: none; color: var(--text-faint);
+  }
+  .trend-close:hover { color: var(--danger); background: transparent; }
+
   /* ---------- 走势图 ---------- */
   .spark-wrap { white-space: normal; line-height: 0; }
   .drawer-body .spark { width: 100%; height: 110px; display: block; margin: 4px 0 2px; }
   .spark-line { fill: none; stroke: var(--accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
   .spark-area { fill: rgba(169, 118, 47, .12); stroke: none; }
   .spark circle { fill: var(--accent); }
-  .spark { display: block; }
+  .spark { display: block; height: 46px; }
   .spark-axis {
     display: flex; justify-content: space-between;
-    font-size: 11px; color: var(--text-faint); margin-bottom: 4px;
+    font-size: 10px; color: var(--text-faint); line-height: 1.3;
   }
   .spark-empty { font-size: 12px; color: var(--text-faint); padding: 10px 0; }
   .spark-stat { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
@@ -384,8 +433,17 @@
       <span class="spacer"></span>
       <label class="toggle"><input type="checkbox" id="hideZero" checked /> 隐藏缺货</label>
       <label class="toggle"><input type="checkbox" id="groupSame" /> 同款聚合</label>
+      <label class="toggle"><input type="checkbox" id="showTrend" /> 价格走势</label>
     </div>
     <div id="noteBar" class="note-bar" style="display:none"></div>
+    <div id="trendPanel" class="trend-panel" style="display:none">
+      <div class="trend-head">
+        <span class="trend-title">该档位最低价走势</span>
+        <span id="trendStat" class="trend-stat"></span>
+        <button id="trendClose" class="trend-close" title="收起">✕</button>
+      </div>
+      <div id="trendBody"></div>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -418,18 +476,34 @@
 
 <script>
 const $ = (s) => document.querySelector(s);
+// ---------- 本地偏好持久化 ----------
+const PREFS_KEY = 'cardweb.prefs';
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch { return {}; }
+}
+function savePref(key, val) {
+  try {
+    const p = loadPrefs();
+    p[key] = val;
+    localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+  } catch { /* 隐私模式下忽略 */ }
+}
+const PREFS = loadPrefs();
+
 const state = {
   products: [],
   groups: [],
-  activeKey: null,
-  sort: 'price',
-  sortDesc: false,
+  platforms: [],
+  activeKey: PREFS.activeKey || null,
+  sort: PREFS.sort || 'price',
+  sortDesc: PREFS.sortDesc === true,
   keyword: '',
-  hideZero: true,
-  groupSame: false,
+  hideZero: PREFS.hideZero !== false,
+  groupSame: PREFS.groupSame === true,
+  showTrend: PREFS.showTrend === true,
   shops: [],
   scheduler: null,
-  collapsed: (() => {
+  collapsed: PREFS.collapsed || (() => {
     try { return JSON.parse(localStorage.getItem('cardweb.collapsed') || '{}'); }
     catch { return {}; }
   })(),
@@ -491,11 +565,17 @@ async function loadShops() {
 
 // ---------- 标准商品列表 ----------
 async function loadProducts() {
-  const { groups, products } = await api('/api/products');
+  const { platform, groups, products } = await api('/api/products');
   state.groups = groups;
   state.products = products;
+  // 当前只有一个平台；Claude 接入后在此追加 { key, name, desc, current: false }
+  state.platforms = platform
+    ? [{ ...platform, current: true },
+       { key: 'claude', name: 'Claude', desc: '即将接入', current: false }]
+    : [];
   if (!products.some((p) => p.key === state.activeKey)) {
     state.activeKey = products[0]?.key || null;
+    savePref('activeKey', state.activeKey);
   }
   renderSidebar();
   renderOffers();
@@ -507,42 +587,80 @@ function renderSidebar() {
     aside.innerHTML = '<div class="empty">还没有商品<br>在顶部粘贴链接添加店铺</div>';
     return;
   }
+
+  // 平台层级：目前只有 OpenAI；后续加 Claude/Gemini 时在此追加
+  const platforms = state.platforms.length
+    ? state.platforms
+    : [{ key: 'openai', name: 'OpenAI', desc: '', order: 1, current: true }];
+
   let html = '';
-  for (const g of state.groups) {
-    const items = state.products.filter((p) => p.group === g.key);
-    if (!items.length) continue;
-    const collapsed = state.collapsed[g.key];
-    const total = items.reduce((n, p) => n + p.offers, 0);
-    const openCount = items.filter((p) => p.inStock > 0).length;
-    html += `<div class="group-head ${collapsed ? 'collapsed' : ''}" data-group="${g.key}">
+  for (const pf of platforms) {
+    const isCurrent = pf.current !== false;
+    const pfCollapsed = state.collapsed['platform:' + pf.key];
+
+    if (!isCurrent) {
+      // 预留平台（未接入数据）
+      html += `<div class="platform-head ghost" title="尚未接入">
+        <span class="pf-chev">▸</span>
+        <span class="pf-name">${esc(pf.name)}</span>
+        <span class="pf-desc">${esc(pf.desc || '暂未接入')}</span>
+      </div>`;
+      continue;
+    }
+
+    html += `<div class="platform-head ${pfCollapsed ? 'collapsed' : ''}" data-platform="${pf.key}">
+      <span class="pf-chev">▾</span>
+      <span class="pf-name">${esc(pf.name)}</span>
+      <span class="pf-desc">${esc(pf.desc || '')}</span>
+    </div>`;
+
+    if (pfCollapsed) continue;
+
+    for (const g of state.groups) {
+      const items = state.products.filter((p) => p.group === g.key);
+      if (!items.length) continue;
+      const collapsed = state.collapsed[g.key];
+      const total = items.reduce((n, p) => n + p.offers, 0);
+      const openCount = items.filter((p) => p.inStock > 0).length;
+      html += `<div class="group-head sub ${collapsed ? 'collapsed' : ''}" data-group="${g.key}">
       <span class="chev">▾</span>
       <span class="group-name">${esc(g.name)}</span>
       <span class="group-meta">${items.length} 项 · ${openCount} 有货</span>
       <span class="group-count">${total}</span>
     </div>`;
-    if (collapsed) continue;
-    html += items.map((p) => {
-      const belowBand = p.band && p.minInStock != null && p.minInStock < p.band.min;
-      const priceTxt = p.minInStock != null
-        ? `最低 <span class="tier-min">${money(p.minInStock)}</span>` +
-          (belowBand ? ` <span class="band-warn" title="低于该档正常区间 ¥${p.band.min}+，可能不是官方订阅">⚠</span>` : '')
-        : '暂无有货';
-      return `<div class="tier ${p.key === state.activeKey ? 'active' : ''}" data-key="${p.key}">
-        <div class="tier-main">
-          <div class="tier-name">${esc(p.name)}</div>
-          <div class="tier-sub">${priceTxt}</div>
-        </div>
-        <span class="tier-count">${p.offers}</span>
-      </div>`;
-    }).join('');
+      if (collapsed) continue;
+      html += items.map((p) => {
+        const belowBand = p.band && p.minInStock != null && p.minInStock < p.band.min;
+        const priceTxt = p.minInStock != null
+          ? `最低 <span class="tier-min">${money(p.minInStock)}</span>` +
+            (belowBand ? ` <span class="band-warn" title="低于该档正常区间 ¥${p.band.min}+，可能不是官方订阅">⚠</span>` : '')
+          : '暂无有货';
+        return `<div class="tier ${p.key === state.activeKey ? 'active' : ''}" data-key="${p.key}">
+          <div class="tier-main">
+            <div class="tier-name">${esc(p.name)}</div>
+            <div class="tier-sub">${priceTxt}</div>
+          </div>
+          <span class="tier-count">${p.offers}</span>
+        </div>`;
+      }).join('');
+    }
   }
   aside.innerHTML = html;
+
+  aside.querySelectorAll('[data-platform]').forEach((el) => {
+    el.onclick = () => {
+      const k = 'platform:' + el.dataset.platform;
+      state.collapsed[k] = !state.collapsed[k];
+      savePref('collapsed', state.collapsed);
+      renderSidebar();
+    };
+  });
 
   aside.querySelectorAll('[data-group]').forEach((el) => {
     el.onclick = () => {
       const k = el.dataset.group;
       state.collapsed[k] = !state.collapsed[k];
-      try { localStorage.setItem('cardweb.collapsed', JSON.stringify(state.collapsed)); } catch {}
+      savePref('collapsed', state.collapsed);
       renderSidebar();
     };
   });
@@ -550,6 +668,7 @@ function renderSidebar() {
   aside.querySelectorAll('[data-key]').forEach((el) => {
     el.onclick = () => {
       state.activeKey = el.dataset.key;
+      savePref('activeKey', state.activeKey);
       if (state.keyword) { state.keyword = ''; $('#search').value = ''; $('#btnClearSearch').style.display = 'none'; }
       renderSidebar();
       renderOffers();
@@ -563,7 +682,7 @@ async function renderOffers() {
   const empty = $('#empty');
 
   // 搜索模式优先：命中跨分类显示
-  if (state.keyword) return renderSearch();
+  if (state.keyword) { $('#trendPanel').style.display = 'none'; return renderSearch(); }
 
   if (!state.activeKey) {
     tbody.innerHTML = ''; empty.style.display = 'block'; empty.textContent = '暂无数据';
@@ -584,6 +703,8 @@ async function renderOffers() {
   }
   if (notes.length) { note.style.display = 'block'; note.textContent = '⚠ ' + notes.join('　｜　'); }
   else note.style.display = 'none';
+
+  renderTrend(state.activeKey);
 
   if (state.groupSame) return renderClusters(p);
 
@@ -730,8 +851,20 @@ async function renderClusters(meta) {
 
   $('#tierMeta').textContent = `${data.total} 条 · 聚为 ${data.clusters.length} 组同款`;
 
+  const sortItems = (arr) => {
+    const a = [...arr];
+    if (state.sort === 'shop') a.sort((x, y) => x.shopName.localeCompare(y.shopName, 'zh'));
+    else if (state.sort === 'warranty') {
+      const w = { subscription: 0, first_login: 1, none: 2, unknown: 3 };
+      a.sort((x, y) => (w[x.warranty] ?? 9) - (w[y.warranty] ?? 9) || x.price - y.price);
+    } else if (state.sort === 'name') a.sort((x, y) => x.name.localeCompare(y.name, 'zh'));
+    else if (state.sort === 'stock') a.sort((x, y) => (y.stock || 0) - (x.stock || 0) || x.price - y.price);
+    else a.sort((x, y) => ((x.stock || 0) > 0 ? 0 : 1) - ((y.stock || 0) > 0 ? 0 : 1) || x.price - y.price);
+    return state.sortDesc ? a.reverse() : a;
+  };
+
   tbody.innerHTML = data.clusters.map((c) => {
-    const rows = c.items.map((o) => {
+    const rows = sortItems(c.items).map((o) => {
       const zero = !o.stock;
       const w = o.warranty || 'unknown';
       return `<tr class="${zero ? 'out-of-stock' : ''}">
@@ -766,7 +899,7 @@ async function renderClusters(meta) {
 }
 
 // ---------- 价格走势图 ----------
-function sparkline(points, w = 480, h = 110) {
+function sparkline(points, w = 480, h = 46) {
   if (!points || points.length < 2) {
     return '<div class="spark-empty">暂无足够的历史数据（需要多次抓取）</div>';
   }
@@ -786,7 +919,7 @@ function sparkline(points, w = 480, h = 110) {
 
   const line = points.map((p, i) => `${i ? 'L' : 'M'}${px(p.fetchedAt ?? p.t).toFixed(1)},${py(p.price).toFixed(1)}`).join(' ');
   const area = `${line} L${px(xs[xs.length - 1]).toFixed(1)},${h - padY} L${px(x0).toFixed(1)},${h - padY} Z`;
-  const dots = points.map((p) => `<circle cx="${px(p.fetchedAt ?? p.t).toFixed(1)}" cy="${py(p.price).toFixed(1)}" r="2.5"/>`).join('');
+  const dots = points.map((p) => `<circle cx="${px(p.fetchedAt ?? p.t).toFixed(1)}" cy="${py(p.price).toFixed(1)}" r="2"/>`).join('');
 
   return `<div class="spark-wrap"><svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
     <path d="${area}" class="spark-area"/>
@@ -798,6 +931,33 @@ function sparkline(points, w = 480, h = 110) {
     <span class="mono">${points.length} 次抓取</span>
     <span>${money(rawMax)}</span>
   </div>`;
+}
+
+
+// ---------- 档位价格走势 ----------
+async function renderTrend(productKey) {
+  const panel = $('#trendPanel');
+  if (!state.showTrend) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  const body = $('#trendBody');
+  const stat = $('#trendStat');
+  body.innerHTML = '<div class="spark-empty">加载中…</div>';
+  stat.textContent = '';
+  try {
+    const d = await api(`/api/products/${productKey}/trend?hours=720`);
+    const st = d.stats;
+    if (!st || st.points < 2) {
+      body.innerHTML = '<div class="spark-empty">历史数据不足（同一档位至少需要 2 次抓取记录）；多抓几次即可看到走势。</div>';
+      return;
+    }
+    const dir = st.change > 0 ? 'up' : st.change < 0 ? 'down' : 'flat';
+    body.innerHTML = sparkline(d.points);
+    stat.innerHTML = `当前 <b>${money(st.current)}</b>　最低 ${money(st.min)}　最高 ${money(st.max)}　` +
+      `<span class="dir-${dir}">${st.change >= 0 ? '+' : ''}${st.change.toFixed(2)}（${st.changePct.toFixed(1)}%）</span>` +
+      `　·　${st.points} 次抓取`;
+  } catch (err) {
+    body.innerHTML = '<div class="spark-empty">走势加载失败：' + esc(err.message) + '</div>';
+  }
 }
 
 // ---------- 详情 ----------
@@ -834,21 +994,6 @@ async function openDetail(id) {
     } else {
       html += '<div class="dsection-title">商品完整说明</div><div class="dtext" style="color:var(--text-faint)">该商品没有填写描述</div>';
     }
-    // 价格走势
-    try {
-      const h = await api(`/api/history/${p.shop_id}/${p.goods_key}`);
-      if (h.points && h.points.length >= 2) {
-        const st = h.stats;
-        const dir = st.change > 0 ? 'up' : st.change < 0 ? 'down' : 'flat';
-        html += `<div class="dsection-title">价格走势（${st.points} 次抓取）</div>`
-          + sparkline(h.points)
-          + `<div class="spark-stat">当前 ${money(st.current)}　·　最低 ${money(st.min)}　·　最高 ${money(st.max)}　·　`
-          + `<span class="dir-${dir}">${st.change >= 0 ? '+' : ''}${st.change.toFixed(2)}（${st.changePct.toFixed(1)}%）</span></div>`;
-      } else {
-        html += `<div class="dsection-title">价格走势</div>${sparkline(h.points)}`;
-      }
-    } catch { /* 历史不可用则跳过 */ }
-
     html += `<div class="dsection-title">原站链接</div><div><a href="${esc(p.link)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(p.link)}</a></div>`;
     body.innerHTML = html;
     body.scrollTop = 0;
@@ -894,8 +1039,30 @@ $('#btnFetchAll').onclick = async () => {
 };
 
 $('#shopUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btnAdd').click(); });
-$('#hideZero').onchange = (e) => { state.hideZero = e.target.checked; renderOffers(); };
-$('#groupSame').onchange = (e) => { state.groupSame = e.target.checked; renderOffers(); };
+$('#hideZero').checked = state.hideZero;
+$('#groupSame').checked = state.groupSame;
+$('#hideZero').onchange = (e) => {
+  state.hideZero = e.target.checked;
+  savePref('hideZero', state.hideZero);
+  renderOffers();
+};
+$('#showTrend').checked = state.showTrend;
+$('#showTrend').onchange = (e) => {
+  state.showTrend = e.target.checked;
+  savePref('showTrend', state.showTrend);
+  renderOffers();
+};
+$('#trendClose').onclick = () => {
+  state.showTrend = false;
+  savePref('showTrend', false);
+  $('#showTrend').checked = false;
+  $('#trendPanel').style.display = 'none';
+};
+$('#groupSame').onchange = (e) => {
+  state.groupSame = e.target.checked;
+  savePref('groupSame', state.groupSame);
+  renderOffers();
+};
 
 // ---- 搜索 ----
 function applySearch(raw) {
@@ -926,6 +1093,8 @@ document.querySelectorAll('thead th').forEach((th) => {
     const s = th.dataset.sort;
     if (state.sort === s) state.sortDesc = !state.sortDesc;
     else { state.sort = s; state.sortDesc = false; }
+    savePref('sort', state.sort);
+    savePref('sortDesc', state.sortDesc);
     renderOffers();
   };
 });

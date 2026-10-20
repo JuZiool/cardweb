@@ -8,7 +8,7 @@ import { openDb, listShops, insertShop, getShopByToken, deleteShop,
   tierSummary, productsByTier, priceHistory, productSummary, productsByProductKey,
   searchProducts, reclassifyAll, getDb, productTrend } from './src/db.js';
 import { allTiers, tierMeta } from './src/classify.js';
-import { allProducts, allGroups, getProduct, WARRANTY_LABEL, classifyProduct, detectConflict } from './src/products.js';
+import { allProducts, allGroups, getProduct, WARRANTY_LABEL, classifyProduct, detectConflict, platformMeta } from './src/products.js';
 import { parseToken, fetchShopInfo, FetchError } from './src/fetcher.js';
 import { clusterProducts } from './src/cluster.js';
 import { Scheduler } from './src/scheduler.js';
@@ -232,7 +232,7 @@ async function handleApi(req, res, url) {
         };
       })
       .filter((p) => p.offers > 0);
-    return json(res, 200, { groups, products });
+    return json(res, 200, { platform: platformMeta(), groups, products });
   }
 
   const prodDetail = pathname.match(/^\/api\/products\/([a-z0-9-]+)\/offers$/);

@@ -34,7 +34,7 @@ function load() {
     noneMarkers: normList(raw.warranty?.none_markers),
   };
 
-  return { products, groups, rules, warranty, raw };
+  return { products, groups, rules, warranty, raw, platform: raw.platformMeta || { key: 'openai', name: 'OpenAI', order: 1 } };
 }
 
 /**
@@ -120,6 +120,10 @@ export function getProduct(key) {
 
 export function allProducts() {
   return [...cfg.products.values()].sort((a, b) => a.order - b.order);
+}
+
+export function platformMeta() {
+  return cfg.platform;
 }
 
 export function allGroups() {
