@@ -1,3 +1,28 @@
+# ================= 部署说明 =================
+#
+# 方式一（推荐）：只用预构建镜像，不在服务器上编译
+#   1. 本地构建并导出：
+#        docker build -t cardweb:latest .
+#        docker save cardweb:latest | gzip > cardweb.tar.gz
+#   2. 上传到服务器后导入：
+#        gunzip -c cardweb.tar.gz | docker load
+#        docker compose up -d
+#
+# 方式二：服务器直接构建
+#    git clone https://github.com/JuZiool/cardweb.git && cd cardweb
+#    docker compose up -d --build
+#
+# 常用命令
+#   docker compose logs -f          看日志
+#   docker compose restart          重启
+#   docker compose down             停止（数据在 ./data 不丢）
+#   curl localhost:8052/api/health  健康检查
+#
+# 数据位置
+#   宿主机 ./data/cardweb.db  ← 挂载到容器 /app/data
+#   备份直接复制这个目录即可
+# ============================================
+
 services:
   cardweb:
     build: .
@@ -5,10 +30,13 @@ services:
     container_name: cardweb
     restart: unless-stopped
     ports:
+      # 左边是宿主机端口，被占用时改左边
       - "8052:8052"
     environment:
-      # 0 = 不自动轮询，全靠页面上的「立即抓取」手动触发全量抓取
+      # 0 = 不自动轮询，全靠页面上的「立即抓取」手动触发
+      # 想定时抓取就设成分钟数，例如 60 = 每小时一轮
       POLL_MINUTES: "0"
+      TZ: Asia/Shanghai
     volumes:
       - ./data:/app/data
     healthcheck:
@@ -17,3 +45,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

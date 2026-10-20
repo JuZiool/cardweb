@@ -1,0 +1,10 @@
+.git
+.gitignore
+data
+*.db
+*.db-wal
+*.db-shm
+node_modules
+*.log
+*.tar.gz
+README.md
