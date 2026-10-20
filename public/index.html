@@ -294,9 +294,32 @@
 
   /* ---------- 档位走势面板 ---------- */
   .trend-panel {
-    flex: 0 0 auto; padding: 6px 16px 4px;
+    flex: 0 0 auto; padding: 6px 16px 6px;
     background: var(--panel); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px;
   }
+  .trend-panel.hidden { display: none; }
+  .trend-left { flex: 0 0 clamp(240px, 38%, 520px); min-width: 0; overflow: hidden; }
+  .pick-panel { flex: 1 1 auto; min-width: 0; }
+  .pick-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 5px 10px; border-radius: 6px;
+    background: #fdf8ee; border: 1px solid #f0e3c6;
+    min-width: 0;
+  }
+  .pick-label {
+    flex: 0 0 auto; font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    color: #8a5f22; background: #f7e4b8; border-radius: 3px; padding: 1px 5px;
+  }
+  .pick-name {
+    flex: 1 1 auto; min-width: 0; font-size: 12px; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .pick-meta { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+  .pick-price { font-size: 13px; font-weight: 700; color: var(--ok); }
+  .pick-shop, .pick-stock { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+  .pick-card .go { flex: 0 0 auto; }
+  .trend-close { flex: 0 0 auto; }
   .trend-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 0; }
   .trend-title { font-size: 11.5px; font-weight: 600; color: var(--text-dim); white-space: nowrap; }
   .trend-stat { font-size: 11px; color: var(--text-dim); flex: 1 1 auto; }
@@ -307,12 +330,12 @@
   .trend-close:hover { color: var(--danger); background: transparent; }
 
   /* ---------- 走势图 ---------- */
-  .spark-wrap { white-space: normal; line-height: 0; }
+  .spark-wrap { white-space: normal; line-height: 0; width: 100%; overflow: hidden; }
   .drawer-body .spark { width: 100%; height: 110px; display: block; margin: 4px 0 2px; }
   .spark-line { fill: none; stroke: var(--accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
   .spark-area { fill: rgba(169, 118, 47, .12); stroke: none; }
   .spark circle { fill: var(--accent); }
-  .spark { display: block; height: 46px; }
+  .spark { display: block; height: 46px; width: 100%; }
   .spark-axis {
     display: flex; justify-content: space-between;
     font-size: 10px; color: var(--text-faint); line-height: 1.3;
@@ -436,13 +459,16 @@
       <label class="toggle"><input type="checkbox" id="showTrend" /> 价格走势</label>
     </div>
     <div id="noteBar" class="note-bar" style="display:none"></div>
-    <div id="trendPanel" class="trend-panel" style="display:none">
-      <div class="trend-head">
-        <span class="trend-title">该档位最低价走势</span>
-        <span id="trendStat" class="trend-stat"></span>
-        <button id="trendClose" class="trend-close" title="收起">✕</button>
+    <div id="trendPanel" class="trend-panel hidden">
+      <div class="trend-left">
+        <div class="trend-head">
+          <span class="trend-title">该档位最低价走势</span>
+          <span id="trendStat" class="trend-stat"></span>
+        </div>
+        <div id="trendBody"></div>
       </div>
-      <div id="trendBody"></div>
+      <div id="pickPanel" class="pick-panel"></div>
+      <button id="trendClose" class="trend-close" title="收起">✕</button>
     </div>
     <div class="table-wrap">
       <table>
@@ -682,7 +708,7 @@ async function renderOffers() {
   const empty = $('#empty');
 
   // 搜索模式优先：命中跨分类显示
-  if (state.keyword) { $('#trendPanel').style.display = 'none'; return renderSearch(); }
+  if (state.keyword) { $('#trendPanel').classList.add('hidden'); return renderSearch(); }
 
   if (!state.activeKey) {
     tbody.innerHTML = ''; empty.style.display = 'block'; empty.textContent = '暂无数据';
@@ -704,9 +730,10 @@ async function renderOffers() {
   if (notes.length) { note.style.display = 'block'; note.textContent = '⚠ ' + notes.join('　｜　'); }
   else note.style.display = 'none';
 
-  renderTrend(state.activeKey);
-
-  if (state.groupSame) return renderClusters(p);
+  if (state.groupSame) {
+    renderTrend(state.activeKey, null);
+    return renderClusters(p);
+  }
 
   const params = new URLSearchParams({
     in_stock: state.hideZero ? '1' : '0',
@@ -714,6 +741,8 @@ async function renderOffers() {
   });
   const data = await api(`/api/products/${state.activeKey}/offers?${params}`);
   const list = data.offers;
+
+  renderTrend(state.activeKey, list);
 
   const rows = state.sort === 'shop'
     ? [...list].sort((a, b) => a.shopName.localeCompare(b.shopName, 'zh'))
@@ -849,6 +878,10 @@ async function renderClusters(meta) {
   const data = await api(`/api/products/${state.activeKey}/clusters?${params}`);
   const labels = state.warrantyLabels;
 
+  // 聚类时用全部条目做推荐
+  const flat = data.clusters.flatMap((c) => c.items);
+  renderPick(flat);
+
   $('#tierMeta').textContent = `${data.total} 条 · 聚为 ${data.clusters.length} 组同款`;
 
   const sortItems = (arr) => {
@@ -934,15 +967,64 @@ function sparkline(points, w = 480, h = 46) {
 }
 
 
+
+// ---------- 推荐商品 ----------
+// 规则：优先质保最好的（订阅 > 首登 > 无质保），同级比价格。
+// 只从有货报价里挑，缺货不推荐。
+function pickBest(offers) {
+  const W = { subscription: 0, first_login: 1, unknown: 2, none: 3 };
+  const live = offers.filter((o) => (o.stock || 0) > 0 && o.price > 0);
+  if (!live.length) return null;
+  return [...live].sort((a, b) => {
+    const wa = W[a.warranty] ?? 2;
+    const wb = W[b.warranty] ?? 2;
+    if (wa !== wb) return wa - wb;      // 先看质保等级
+    return a.price - b.price;            // 同等级看价格
+  })[0];
+}
+
+function renderPick(offers) {
+  const box = $('#pickPanel');
+  const best = pickBest(offers);
+  if (!best) { box.innerHTML = ''; return; }
+
+  // 同质保等级里的最便宜，才是真正的「性价比之选」
+  const W = { subscription: 0, first_login: 1, unknown: 2, none: 3 };
+  const sameLevel = offers.filter((o) => (o.stock || 0) > 0
+    && (W[o.warranty] ?? 2) === (W[best.warranty] ?? 2));
+  const cheapest = sameLevel.length
+    ? [...sameLevel].sort((a, b) => a.price - b.price)[0]
+    : best;
+
+  const labels = state.warrantyLabels;
+  const w = best.warranty || 'unknown';
+  box.innerHTML = `<div class="pick-card">
+    <div class="pick-label">推荐</div>
+    <div class="pick-name" title="${esc(best.name)}">${esc(best.name)}</div>
+    <div class="pick-meta">
+      <span class="wtag ${w}">${esc(labels[w] || w)}</span>
+      <span class="pick-price">${money(best.price)}</span>
+      <span class="pick-shop">${esc(best.shopName)}</span>
+      <span class="pick-stock">库存 ${best.stock}</span>
+    </div>
+    <a class="go" href="${esc(best.link)}" target="_blank" rel="noopener">购买</a>
+  </div>`;
+}
+
 // ---------- 档位价格走势 ----------
-async function renderTrend(productKey) {
+async function renderTrend(productKey, offers = null) {
   const panel = $('#trendPanel');
-  if (!state.showTrend) { panel.style.display = 'none'; return; }
-  panel.style.display = 'block';
+  if (!state.showTrend) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
   const body = $('#trendBody');
   const stat = $('#trendStat');
   body.innerHTML = '<div class="spark-empty">加载中…</div>';
   stat.textContent = '';
+
+  // 推荐区先渲染，不依赖走势接口
+  if (offers && offers.length) renderPick(offers);
+  else $('#pickPanel').innerHTML = '';
+
   try {
     const d = await api(`/api/products/${productKey}/trend?hours=720`);
     const st = d.stats;
@@ -1056,7 +1138,7 @@ $('#trendClose').onclick = () => {
   state.showTrend = false;
   savePref('showTrend', false);
   $('#showTrend').checked = false;
-  $('#trendPanel').style.display = 'none';
+  $('#trendPanel').classList.add('hidden');
 };
 $('#groupSame').onchange = (e) => {
   state.groupSame = e.target.checked;
