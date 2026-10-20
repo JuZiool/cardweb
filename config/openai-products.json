@@ -1,0 +1,1437 @@
+{
+  "platform": "OpenAI",
+  "groups": [
+    {
+      "key": "account",
+      "name": "成品号",
+      "order": 1
+    },
+    {
+      "key": "charge",
+      "name": "代充订阅",
+      "order": 2
+    },
+    {
+      "key": "pro",
+      "name": "Pro 档位 / 额度",
+      "order": 3
+    },
+    {
+      "key": "team",
+      "name": "Team 车",
+      "order": 4
+    },
+    {
+      "key": "sms",
+      "name": "接码验证",
+      "order": 5
+    },
+    {
+      "key": "other",
+      "name": "其他订阅",
+      "order": 6
+    }
+  ],
+  "products": [
+    {
+      "key": "plus-daily",
+      "group": "account",
+      "order": 10,
+      "name": "Plus 日抛 / 未接马",
+      "spec": "未接短信 · 质保首登 · 30 分钟~1 小时验号",
+      "note": "最便宜的一档，只保首登，超时不退不换；日抛号当天可能失效"
+    },
+    {
+      "key": "plus-ready",
+      "group": "account",
+      "order": 11,
+      "name": "Plus 已接马",
+      "spec": "已过短信验证 · 可直接登录网页 / Codex",
+      "note": "比未接马贵 3~5 元，省掉自己接码这一步"
+    },
+    {
+      "key": "plus-proxy",
+      "group": "account",
+      "order": 12,
+      "name": "Plus 反代专用",
+      "spec": "CPA / sub2api 反代 · 可不发账密",
+      "note": "只给 json / RT，用于反代池，走量"
+    },
+    {
+      "key": "plus-long",
+      "group": "account",
+      "order": 13,
+      "name": "Plus 长质保",
+      "spec": "质保 1 天 ~ 30 天 · 越南实卡 / 一卡一指纹",
+      "note": "贵，但掉订阅可补；适合长期用"
+    },
+    {
+      "key": "plus-quota",
+      "group": "account",
+      "order": 14,
+      "name": "Plus 满额度 / 重置卡",
+      "spec": "满额度 · 附带 1~3 张重置卡",
+      "note": "额度不够或降智时用重置卡恢复"
+    },
+    {
+      "key": "plus-student",
+      "group": "account",
+      "order": 15,
+      "name": "Plus 学生认证",
+      "spec": "学生认证 / 半价资格号 · 人工绑卡",
+      "note": "交付的是资格，不是会员"
+    },
+    {
+      "key": "plus-selfopen",
+      "group": "account",
+      "order": 16,
+      "name": "Plus 自助开通",
+      "spec": "自备账号 · 自助扫码 / 开通",
+      "note": "需要自己提供账号，站点只给开通通道"
+    },
+    {
+      "key": "plus-other",
+      "group": "account",
+      "order": 17,
+      "name": "Plus 成品号（其他）",
+      "spec": "半成品 / 其他渠道 · 未归类到上面几种",
+      "note": ""
+    },
+    {
+      "key": "openai-free",
+      "group": "account",
+      "order": 18,
+      "name": "ChatGPT 普号 / Free 号",
+      "spec": "免费号 · 无会员 · 可用于接码/注册",
+      "note": "0.1 元级，仅作注册基底或反代"
+    },
+    {
+      "key": "plus-charge-ph",
+      "group": "charge",
+      "order": 20,
+      "name": "Plus 代充 · 菲区 CDK",
+      "spec": "菲区卡充 · 质保订阅 30 天 · 多数不可覆盖老号",
+      "note": "主流代充档，12x 元",
+      "band": {
+        "min": 80,
+        "max": 250
+      }
+    },
+    {
+      "key": "plus-charge-bill",
+      "group": "charge",
+      "order": 21,
+      "name": "Plus 代充 · 带官方账单",
+      "spec": "官方直充 · 带账单 · 可开票",
+      "note": "比菲区贵 1~10 元，售后凭据更硬",
+      "band": {
+        "min": 80,
+        "max": 300
+      }
+    },
+    {
+      "key": "plus-charge-ios",
+      "group": "charge",
+      "order": 22,
+      "name": "Plus 代充 · iOS / 美区",
+      "spec": "iOS 渠道 CDK · 可覆盖 · 可续费",
+      "note": "能覆盖老号，安卓也可用",
+      "band": {
+        "min": 80,
+        "max": 300
+      }
+    },
+    {
+      "key": "plus-charge-other",
+      "group": "charge",
+      "order": 23,
+      "name": "Plus 代充 · 其他渠道",
+      "spec": "官方直充 / 其他地区 · 未细分的代充",
+      "note": "",
+      "band": {
+        "min": 80,
+        "max": 300
+      }
+    },
+    {
+      "key": "plus-go",
+      "group": "charge",
+      "order": 24,
+      "name": "ChatGPT Go",
+      "spec": "Go 档月卡 · 额度低于 Plus",
+      "note": "适合轻量使用",
+      "band": {
+        "min": 20,
+        "max": 150
+      }
+    },
+    {
+      "key": "plus-year",
+      "group": "charge",
+      "order": 25,
+      "name": "Plus 年卡",
+      "spec": "12 个月 · 质保订阅",
+      "note": "",
+      "band": {
+        "min": 600,
+        "max": 3000
+      }
+    },
+    {
+      "key": "pro-5x",
+      "group": "pro",
+      "order": 30,
+      "name": "Pro 100 刀 / 5x",
+      "spec": "Pro 100 美元额度 · 5 倍用量",
+      "note": "可覆盖 · 可续费",
+      "band": {
+        "min": 300,
+        "max": 1200
+      }
+    },
+    {
+      "key": "pro-20x",
+      "group": "pro",
+      "order": 31,
+      "name": "Pro 200 刀 / 20x",
+      "spec": "Pro 200 美元额度 · 20 倍用量",
+      "note": "部分渠道标 10x，属同档",
+      "band": {
+        "min": 600,
+        "max": 2000
+      }
+    },
+    {
+      "key": "pro-500",
+      "group": "pro",
+      "order": 32,
+      "name": "Pro 500 刀 / 25x·50x",
+      "spec": "Pro Max · 500 美元额度",
+      "note": "",
+      "band": {
+        "min": 2000,
+        "max": 6000
+      }
+    },
+    {
+      "key": "pro-acc",
+      "group": "pro",
+      "order": 33,
+      "name": "Pro 成品号",
+      "spec": "直接发 Pro 账号 · 临期 / 速刷",
+      "note": ""
+    },
+    {
+      "key": "team-seat",
+      "group": "team",
+      "order": 40,
+      "name": "Team 车位（月权益）",
+      "spec": "车位 · 可与 Plus 并存 · 质保订阅",
+      "note": "补额度用，不是独立账号",
+      "band": {
+        "min": 60,
+        "max": 400
+      }
+    },
+    {
+      "key": "team-account",
+      "group": "team",
+      "order": 41,
+      "name": "Team 账号 / 席位",
+      "spec": "1x / 5x Team · 5 小时额度限制 · 车主定时踢人",
+      "note": "拼车性质，随时可能被踢；商品名里常写「几点踢」"
+    },
+    {
+      "key": "codex-sms-once",
+      "group": "sms",
+      "order": 50,
+      "name": "Codex 接马 · 单次",
+      "spec": "5 秒 ~ 25 分钟有效 · 多为美国实卡",
+      "note": "过一次验证用，多数标 100% 成功"
+    },
+    {
+      "key": "codex-sms-long",
+      "group": "sms",
+      "order": 51,
+      "name": "Codex 接马 · 长效",
+      "spec": "20 ~ 90 天有效 · 可绑 2~3 个号",
+      "note": "只质保「来码」，不保证绑定成功"
+    },
+    {
+      "key": "codex-sms-pack",
+      "group": "sms",
+      "order": 52,
+      "name": "Codex 接马 · 次数包",
+      "spec": "10 次 / 50 次 CDK · 可 API 对接",
+      "note": "量大或跑自动化"
+    },
+    {
+      "key": "codex-credit",
+      "group": "sms",
+      "order": 53,
+      "name": "Codex 额度 / 邀请",
+      "spec": "Credits 充值 · 好友邀请加额度",
+      "note": "补额度，不是订阅"
+    },
+    {
+      "key": "api-credit",
+      "group": "pro",
+      "order": 34,
+      "name": "API 中转额度",
+      "spec": "第三方中转站余额 / 兑换码 · 按刀计价",
+      "note": "不是官方订阅，是第三方中转站的余额；按面额折算，单价通常低于官方",
+      "hidden": true
+    }
+  ],
+  "warranty": {
+    "subscription": [
+      "质保订阅",
+      "保订阅",
+      "质保一个月",
+      "质保1个月",
+      "质保30天",
+      "质保 30 天",
+      "质保28天",
+      "质保25天",
+      "质保24小时",
+      "质保三个月",
+      "质保3个月",
+      "质保1天",
+      "质保一天",
+      "质保3天",
+      "质保三天",
+      "质保两天",
+      "质保7天",
+      "全程质保",
+      "质保到期",
+      "质保 30",
+      "质保25",
+      "质保28"
+    ],
+    "first_login": [
+      "质保首登",
+      "保首登",
+      "首登质保",
+      "质保首码",
+      "质保首",
+      "首登保障",
+      "质保1h",
+      "质保 1h",
+      "质保1小时",
+      "质保2h",
+      "质保2小时",
+      "质保3h",
+      "质保3小时",
+      "质保半小时",
+      "质保下单后",
+      "质保购买起",
+      "质保炸车",
+      "质保购物半小时"
+    ],
+    "none_markers": [
+      "无质保",
+      "不质保",
+      "不保",
+      "无保",
+      "封号不保",
+      "售后无"
+    ]
+  },
+  "rules": [
+    {
+      "product": "team-seat",
+      "aliases": [
+        "车位",
+        "月权益"
+      ],
+      "excludeAny": [
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ]
+    },
+    {
+      "product": "openai-free",
+      "aliases": [
+        "g free",
+        "gfree",
+        "free号",
+        "free 号",
+        "free成品",
+        "codex free",
+        "免费号",
+        "免费账号",
+        "openai free",
+        "free账号",
+        "free"
+      ],
+      "excludeAny": [
+        "plus",
+        "g+p",
+        "g.pt",
+        "吉皮提",
+        "plus成品",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ],
+      "requireAny": [
+        "g free",
+        "gfree",
+        "free号",
+        "free 号",
+        "codex free",
+        "openai free",
+        "免费号",
+        "gpt free"
+      ]
+    },
+    {
+      "product": "plus-ready",
+      "aliases": [
+        "已接马",
+        "已接码",
+        "已接🐎",
+        "已接",
+        "已接🐎",
+        "已接码"
+      ],
+      "excludeAny": [
+        "反代",
+        "验证码",
+        "号池",
+        "自助充值",
+        "接马服务",
+        "接码服务",
+        "验证码服务",
+        "接马cdk",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ],
+      "requireAny": [
+        "plus",
+        "gpt",
+        "oai",
+        "吉皮提",
+        "g.pt",
+        "g+p"
+      ]
+    },
+    {
+      "product": "plus-daily",
+      "aliases": [
+        "未接马",
+        "未接码",
+        "未接🐎",
+        "未接",
+        "日抛",
+        "质保首登",
+        "首登",
+        "保首登",
+        "1h",
+        "1小时",
+        "半小时"
+      ],
+      "excludeAny": [
+        "反代",
+        "验证码",
+        "号池",
+        "自助充值",
+        "接马服务",
+        "接码服务",
+        "验证码服务",
+        "接马cdk",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ],
+      "requireAny": [
+        "plus",
+        "gpt",
+        "oai",
+        "吉皮提",
+        "g.pt",
+        "g+p"
+      ]
+    },
+    {
+      "product": "team-account",
+      "aliases": [
+        "team"
+      ],
+      "excludeAny": [
+        "free",
+        "账密2fa-1号",
+        "5xteam车",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ]
+    },
+    {
+      "product": "codex-credit",
+      "aliases": [
+        "额度充值",
+        "额度增加",
+        "邀请奖励",
+        "codex邀请",
+        "邀请好友",
+        "credits",
+        "codex 额度",
+        "codex额度",
+        "Codex 点数",
+        "点数额度"
+      ],
+      "excludeAny": [
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium",
+        "kling",
+        "可灵",
+        "seedance",
+        "runway",
+        "perplexity",
+        "积分",
+        "算力",
+        "广告",
+        "ad grant",
+        "google ai",
+        "muse",
+        "kro",
+        "cursor",
+        "leonardo",
+        "即梦"
+      ],
+      "requireAny": [
+        "codex",
+        "额度",
+        "邀请",
+        "点数",
+        "credits"
+      ]
+    },
+    {
+      "product": "plus-quota",
+      "aliases": [
+        "重置卡",
+        "满额度"
+      ],
+      "requireAny": [
+        "plus",
+        "gpt",
+        "oai",
+        "吉皮提"
+      ],
+      "excludeAny": [
+        "验证码",
+        "号池",
+        "自助充值",
+        "接马服务",
+        "接码服务",
+        "验证码服务",
+        "接马cdk",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ]
+    },
+    {
+      "product": "plus-proxy",
+      "aliases": [
+        "反代",
+        "sub2api",
+        "cpa"
+      ],
+      "requireAny": [
+        "plus",
+        "gpt",
+        "oai",
+        "吉皮提",
+        "g.pt",
+        "g+p"
+      ],
+      "excludeAny": [
+        "验证码",
+        "号池",
+        "自助充值",
+        "接马服务",
+        "接码服务",
+        "验证码服务",
+        "接马cdk",
+        "free",
+        "g+p·t",
+        "g+p",
+        "吉皮提 free",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ]
+    },
+    {
+      "product": "plus-student",
+      "aliases": [
+        "学生",
+        "资格号"
+      ],
+      "excludeAny": [
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium",
+        "提链",
+        "dr提",
+        "icloud提"
+      ],
+      "requireAny": [
+        "plus",
+        "gpt",
+        "半价",
+        "学生"
+      ]
+    },
+    {
+      "product": "plus-selfopen",
+      "aliases": [
+        "自助开通",
+        "自助扫码"
+      ],
+      "excludeAny": [
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ]
+    },
+    {
+      "product": "api-credit",
+      "aliases": [
+        "中转",
+        "兑换码",
+        "API充值",
+        "G API",
+        "中转站",
+        "余额",
+        "充值余额",
+        "100刀",
+        "10刀",
+        "50刀",
+        "200刀",
+        "500刀"
+      ],
+      "requireAny": [
+        "中转",
+        "兑换码",
+        "充值余额",
+        "API充值",
+        "G API"
+      ]
+    },
+    {
+      "product": "pro-500",
+      "aliases": [
+        "500刀",
+        "500美",
+        "pro max",
+        "25x",
+        "50x"
+      ],
+      "excludeAny": [
+        "中转",
+        "loveapi",
+        "中站",
+        "团队",
+        "人车",
+        "共享号",
+        "拼车",
+        "车位",
+        "free",
+        "team",
+        "账密2fa",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium",
+        "兑换码",
+        "兑换",
+        "元500刀",
+        "元100刀",
+        "积分",
+        "算力",
+        "cursor",
+        "可灵",
+        "kling",
+        "长效车",
+        "车用",
+        "用到号死",
+        "退款流",
+        "号池",
+        "自助充值",
+        "c0dex",
+        "youtube",
+        "visa",
+        "perplexity",
+        "netflix",
+        "spotify",
+        "seedance",
+        "runway",
+        "midjourney",
+        "adobe",
+        "capcut",
+        "即梦",
+        "nord",
+        "expressvpn",
+        "surfshark",
+        "apple",
+        "icloud+",
+        "telegram",
+        "discord",
+        "twitter",
+        "x premium",
+        "muse"
+      ]
+    },
+    {
+      "product": "pro-20x",
+      "aliases": [
+        "20x",
+        "200刀",
+        "200美",
+        "pro200",
+        "pro 200",
+        "$200",
+        "200美金",
+        "10x",
+        "pro10x",
+        "pro 10x"
+      ],
+      "excludeAny": [
+        "中转",
+        "loveapi",
+        "中站",
+        "团队",
+        "pro 5x",
+        "pro5x",
+        "5x ",
+        "人车",
+        "共享号",
+        "拼车",
+        "车位",
+        "free",
+        "team",
+        "账密2fa",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium",
+        "兑换码",
+        "兑换",
+        "元500刀",
+        "元100刀",
+        "积分",
+        "算力",
+        "cursor",
+        "可灵",
+        "kling",
+        "长效车",
+        "车用",
+        "用到号死",
+        "退款流",
+        "号池",
+        "自助充值",
+        "c0dex",
+        "youtube",
+        "visa",
+        "perplexity",
+        "netflix",
+        "spotify",
+        "seedance",
+        "runway",
+        "midjourney",
+        "adobe",
+        "capcut",
+        "即梦",
+        "nord",
+        "expressvpn",
+        "surfshark",
+        "apple",
+        "icloud+",
+        "telegram",
+        "discord",
+        "twitter",
+        "x premium",
+        "muse"
+      ]
+    },
+    {
+      "product": "pro-5x",
+      "aliases": [
+        "5x",
+        "100刀",
+        "100美",
+        "pro100",
+        "pro 100",
+        "$100",
+        "100美金"
+      ],
+      "excludeAny": [
+        "中转",
+        "loveapi",
+        "中站",
+        "团队",
+        "人车",
+        "共享号",
+        "拼车",
+        "车位",
+        "free",
+        "team",
+        "账密2fa",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium",
+        "兑换码",
+        "兑换",
+        "元500刀",
+        "元100刀",
+        "积分",
+        "算力",
+        "cursor",
+        "可灵",
+        "kling",
+        "长效车",
+        "车用",
+        "用到号死",
+        "退款流",
+        "号池",
+        "自助充值",
+        "c0dex",
+        "youtube",
+        "visa",
+        "perplexity",
+        "netflix",
+        "spotify",
+        "seedance",
+        "runway",
+        "midjourney",
+        "adobe",
+        "capcut",
+        "即梦",
+        "nord",
+        "expressvpn",
+        "surfshark",
+        "apple",
+        "icloud+",
+        "telegram",
+        "discord",
+        "twitter",
+        "x premium",
+        "muse"
+      ]
+    },
+    {
+      "product": "pro-acc",
+      "aliases": [
+        "临期",
+        "速刷"
+      ],
+      "requireAny": [
+        "pro"
+      ],
+      "excludeAny": [
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium",
+        "中转",
+        "兑换码",
+        "元500刀",
+        "元100刀",
+        "积分",
+        "算力",
+        "cursor",
+        "可灵",
+        "kling"
+      ]
+    },
+    {
+      "product": "plus-long",
+      "aliases": [
+        "质保25天",
+        "质保28天",
+        "质保30天",
+        "质保24小时",
+        "质保1天",
+        "质保一天",
+        "质保订阅",
+        "越南实卡",
+        "一卡一指纹"
+      ],
+      "requireAny": [
+        "成品",
+        "账号",
+        "独享",
+        "plus",
+        "gpt",
+        "oai",
+        "吉皮提",
+        "g.pt",
+        "g+p"
+      ],
+      "excludeAny": [
+        "代充",
+        "充值",
+        "卡充",
+        "直充",
+        "直冲",
+        "cdk",
+        "官充",
+        "正价",
+        "续费",
+        "验证码",
+        "号池",
+        "自助充值",
+        "接马服务",
+        "接码服务",
+        "验证码服务",
+        "接马cdk",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ]
+    },
+    {
+      "product": "plus-go",
+      "regex": "(^|[^a-z])(chatgpts*)?go([^a-z]|s*(月卡|一个月))|gpt go|plus go",
+      "requireAny": [],
+      "excludeAny": [
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium",
+        "youtube",
+        "visa",
+        "perplexity",
+        "netflix",
+        "spotify",
+        "cursor",
+        "kling",
+        "可灵",
+        "seedance",
+        "runway",
+        "midjourney",
+        "adobe",
+        "capcut",
+        "即梦",
+        "nord",
+        "expressvpn",
+        "surfshark",
+        "apple",
+        "icloud+",
+        "telegram",
+        "discord",
+        "twitter",
+        "x premium",
+        "muse"
+      ]
+    },
+    {
+      "product": "plus-charge-ios",
+      "aliases": [
+        "ios",
+        "美区"
+      ],
+      "requireAny": [
+        "代充",
+        "充值",
+        "卡充",
+        "直充",
+        "直冲",
+        "cdk",
+        "官充",
+        "正价"
+      ],
+      "excludeAny": [
+        "提链",
+        "401",
+        "授权",
+        "中转",
+        "额度",
+        "loveapi",
+        "次数",
+        "grok",
+        "gro ",
+        "超级gro",
+        "supergro",
+        "go ",
+        "邮箱",
+        "outlook",
+        "gmail",
+        "自建号池",
+        "自助充值",
+        "号池",
+        "商务",
+        "订阅会员",
+        "x premium",
+        "推特",
+        "礼品",
+        "虚拟卡",
+        "gro普号",
+        "gro 普号",
+        "super gro",
+        "gro4.6",
+        "grok premium",
+        "youtube",
+        "visa",
+        "perplexity",
+        "netflix",
+        "spotify",
+        "cursor",
+        "kling",
+        "可灵",
+        "seedance",
+        "runway",
+        "midjourney",
+        "adobe",
+        "capcut",
+        "即梦",
+        "nord",
+        "expressvpn",
+        "surfshark",
+        "apple",
+        "icloud+",
+        "telegram",
+        "discord",
+        "twitter",
+        "muse"
+      ]
+    },
+    {
+      "product": "plus-charge-bill",
+      "aliases": [
+        "账单"
+      ],
+      "requireAny": [
+        "代充",
+        "充值",
+        "卡充",
+        "直充",
+        "直冲",
+        "cdk",
+        "官充",
+        "正价"
+      ],
+      "excludeAny": [
+        "提链",
+        "401",
+        "授权",
+        "中转",
+        "额度",
+        "loveapi",
+        "次数",
+        "grok",
+        "gro ",
+        "超级gro",
+        "supergro",
+        "go ",
+        "邮箱",
+        "outlook",
+        "gmail",
+        "自建号池",
+        "自助充值",
+        "号池",
+        "商务",
+        "订阅会员",
+        "x premium",
+        "推特",
+        "礼品",
+        "虚拟卡",
+        "gro普号",
+        "gro 普号",
+        "super gro",
+        "gro4.6",
+        "grok premium",
+        "youtube",
+        "visa",
+        "perplexity",
+        "netflix",
+        "spotify",
+        "cursor",
+        "kling",
+        "可灵",
+        "seedance",
+        "runway",
+        "midjourney",
+        "adobe",
+        "capcut",
+        "即梦",
+        "nord",
+        "expressvpn",
+        "surfshark",
+        "apple",
+        "icloud+",
+        "telegram",
+        "discord",
+        "twitter",
+        "muse"
+      ]
+    },
+    {
+      "product": "plus-charge-ph",
+      "aliases": [
+        "菲区"
+      ],
+      "requireAny": [
+        "代充",
+        "充值",
+        "卡充",
+        "直充",
+        "直冲",
+        "cdk",
+        "官充",
+        "正价",
+        "质保30天",
+        "30天质保",
+        "无法覆盖",
+        "极速到账"
+      ],
+      "excludeAny": [
+        "提链",
+        "401",
+        "授权",
+        "中转",
+        "额度",
+        "loveapi",
+        "次数",
+        "grok",
+        "gro ",
+        "超级gro",
+        "supergro",
+        "go ",
+        "邮箱",
+        "outlook",
+        "gmail",
+        "自建号池",
+        "自助充值",
+        "号池",
+        "商务",
+        "订阅会员",
+        "x premium",
+        "推特",
+        "礼品",
+        "虚拟卡",
+        "gro普号",
+        "gro 普号",
+        "super gro",
+        "gro4.6",
+        "grok premium",
+        "youtube",
+        "visa",
+        "perplexity",
+        "netflix",
+        "spotify",
+        "cursor",
+        "kling",
+        "可灵",
+        "seedance",
+        "runway",
+        "midjourney",
+        "adobe",
+        "capcut",
+        "即梦",
+        "nord",
+        "expressvpn",
+        "surfshark",
+        "apple",
+        "icloud+",
+        "telegram",
+        "discord",
+        "twitter",
+        "muse"
+      ]
+    },
+    {
+      "product": "plus-year",
+      "aliases": [
+        "年卡"
+      ],
+      "requireAny": [
+        "plus",
+        "gpt",
+        "codex"
+      ],
+      "excludeAny": [
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium",
+        "youtube",
+        "visa",
+        "perplexity",
+        "netflix",
+        "spotify",
+        "cursor",
+        "kling",
+        "可灵",
+        "seedance",
+        "runway",
+        "midjourney",
+        "adobe",
+        "capcut",
+        "即梦",
+        "nord",
+        "expressvpn",
+        "surfshark",
+        "apple",
+        "icloud+",
+        "telegram",
+        "discord",
+        "twitter",
+        "x premium",
+        "muse"
+      ]
+    },
+    {
+      "product": "codex-sms-pack",
+      "aliases": [
+        "次兑换",
+        "10次",
+        "50次",
+        "10 次",
+        "50 次"
+      ],
+      "requireAny": [
+        "接马",
+        "接码",
+        "接🐎",
+        "验证码",
+        "验证"
+      ],
+      "excludeAny": [
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ]
+    },
+    {
+      "product": "codex-sms-long",
+      "aliases": [
+        "长效",
+        "月租",
+        "30-90",
+        "20-30",
+        "25-30",
+        "18-30",
+        "11-30",
+        "25天",
+        "30天",
+        "25 天"
+      ],
+      "requireAny": [
+        "接马",
+        "接码",
+        "接🐎"
+      ],
+      "excludeAny": [
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ]
+    },
+    {
+      "product": "codex-sms-once",
+      "requireAny": [
+        "接马",
+        "接码",
+        "接🐎"
+      ],
+      "excludeAny": [
+        "已接",
+        "未接",
+        "成品",
+        "账号",
+        "日抛",
+        "首登",
+        "反代",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ]
+    },
+    {
+      "product": "plus-charge-other",
+      "requireAny": [
+        "代充",
+        "充值",
+        "卡充",
+        "直充",
+        "直冲",
+        "cdk",
+        "官充",
+        "正价"
+      ],
+      "excludeAny": [
+        "提链",
+        "401",
+        "授权",
+        "中转",
+        "额度",
+        "loveapi",
+        "次数",
+        "grok",
+        "gro ",
+        "超级gro",
+        "supergro",
+        "go ",
+        "邮箱",
+        "outlook",
+        "gmail",
+        "自建号池",
+        "自助充值",
+        "号池",
+        "商务",
+        "订阅会员",
+        "x premium",
+        "推特",
+        "礼品",
+        "虚拟卡",
+        "gro普号",
+        "gro 普号",
+        "super gro",
+        "gro4.6",
+        "grok premium",
+        "youtube",
+        "visa",
+        "perplexity",
+        "netflix",
+        "spotify",
+        "cursor",
+        "kling",
+        "可灵",
+        "seedance",
+        "runway",
+        "midjourney",
+        "adobe",
+        "capcut",
+        "即梦",
+        "nord",
+        "expressvpn",
+        "surfshark",
+        "apple",
+        "icloud+",
+        "telegram",
+        "discord",
+        "twitter",
+        "muse"
+      ]
+    },
+    {
+      "product": "plus-other",
+      "aliases": [
+        "成品",
+        "半成品",
+        "账号",
+        "独享"
+      ],
+      "excludeAny": [
+        "free",
+        "验证码",
+        "号池",
+        "自助充值",
+        "接马服务",
+        "接码服务",
+        "验证码服务",
+        "接马cdk",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ],
+      "requireAny": [
+        "plus",
+        "gpt",
+        "oai",
+        "吉皮提",
+        "g+p",
+        "gp t",
+        "gp·t",
+        "g.pt"
+      ]
+    }
+  ]
+}

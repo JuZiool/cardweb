@@ -1,0 +1,662 @@
+{
+  "tiers": [
+    {
+      "key": "plus_charge_ph",
+      "name": "官充 Plus（菲区）",
+      "order": 10,
+      "hot": true
+    },
+    {
+      "key": "plus_charge_bill",
+      "name": "官充 Plus（带账单）",
+      "order": 11,
+      "hot": true
+    },
+    {
+      "key": "plus_charge_ios",
+      "name": "官充 Plus（iOS/美区）",
+      "order": 12,
+      "hot": true
+    },
+    {
+      "key": "plus_charge_other",
+      "name": "官充 Plus（其他渠道）",
+      "order": 13
+    },
+    {
+      "key": "pro5x",
+      "name": "官充 Pro 5x（100 刀）",
+      "order": 14,
+      "hot": true
+    },
+    {
+      "key": "pro20x",
+      "name": "官充 Pro 10x/20x（200 刀）",
+      "order": 15,
+      "hot": true
+    },
+    {
+      "key": "plus_year",
+      "name": "Plus 年卡",
+      "order": 16
+    },
+    {
+      "key": "plus_go",
+      "name": "Go 月卡",
+      "order": 17
+    },
+    {
+      "key": "plus_daily",
+      "name": "Plus 日抛/未接马",
+      "order": 20,
+      "hot": true
+    },
+    {
+      "key": "plus_ready",
+      "name": "Plus 已接马",
+      "order": 21,
+      "hot": true
+    },
+    {
+      "key": "plus_proxy",
+      "name": "Plus 反代专用",
+      "order": 22,
+      "hot": true
+    },
+    {
+      "key": "plus_long",
+      "name": "Plus 长质保",
+      "order": 23,
+      "hot": true
+    },
+    {
+      "key": "plus_quota",
+      "name": "Plus 满额度/重置卡",
+      "order": 24
+    },
+    {
+      "key": "plus_student",
+      "name": "Plus 学生认证",
+      "order": 25
+    },
+    {
+      "key": "plus_selfopen",
+      "name": "Plus 自助开通",
+      "order": 26
+    },
+    {
+      "key": "pro_acc",
+      "name": "Pro 成品号",
+      "order": 27
+    },
+    {
+      "key": "plus_other",
+      "name": "Plus 成品号（其他）",
+      "order": 28
+    },
+    {
+      "key": "codex_sms_once",
+      "name": "Codex 接马 · 单次",
+      "order": 30,
+      "hot": true
+    },
+    {
+      "key": "codex_sms_long",
+      "name": "Codex 接马 · 长效",
+      "order": 31,
+      "hot": true
+    },
+    {
+      "key": "codex_sms_pack",
+      "name": "Codex 接马 · 次数包",
+      "order": 32
+    },
+    {
+      "key": "team_account",
+      "name": "Team 账号/席位",
+      "order": 40,
+      "hot": true
+    },
+    {
+      "key": "team_seat",
+      "name": "Team 车位（月权益）",
+      "order": 41
+    },
+    {
+      "key": "g_free",
+      "name": "G Free 免费号",
+      "order": 50,
+      "hot": true
+    },
+    {
+      "key": "claude_acc",
+      "name": "Claude 成品号",
+      "order": 60,
+      "hot": true
+    },
+    {
+      "key": "claude_charge",
+      "name": "Claude 代充",
+      "order": 61,
+      "hot": true
+    },
+    {
+      "key": "claude_kyc",
+      "name": "Claude KYC",
+      "order": 62
+    },
+    {
+      "key": "claude_sms",
+      "name": "Claude 接马",
+      "order": 63
+    },
+    {
+      "key": "grok_super",
+      "name": "SuperGrok 会员",
+      "order": 70,
+      "hot": true
+    },
+    {
+      "key": "grok_ultra",
+      "name": "Grok Ultra/Heavy",
+      "order": 71
+    },
+    {
+      "key": "grok_free",
+      "name": "Grok 普号",
+      "order": 72
+    },
+    {
+      "key": "gemini_pro",
+      "name": "Gemini Pro",
+      "order": 80,
+      "hot": true
+    },
+    {
+      "key": "gemini_antigrav",
+      "name": "Gemini 反重力",
+      "order": 81
+    },
+    {
+      "key": "google_ultra",
+      "name": "Google AI Ultra",
+      "order": 82
+    },
+    {
+      "key": "muse",
+      "name": "Muse",
+      "order": 90,
+      "hot": true
+    },
+    {
+      "key": "kiro",
+      "name": "Kiro",
+      "order": 91
+    },
+    {
+      "key": "creator",
+      "name": "AI 创作（即梦/Capcut）",
+      "order": 92
+    },
+    {
+      "key": "email",
+      "name": "邮箱账号",
+      "order": 93
+    },
+    {
+      "key": "vcard",
+      "name": "虚拟卡 / 接马",
+      "order": 94
+    },
+    {
+      "key": "misc",
+      "name": "其他",
+      "order": 99
+    }
+  ],
+  "accountMarkers": [
+    "成品",
+    "账号",
+    "未接",
+    "已接",
+    "首登",
+    "独享",
+    "半成品",
+    "日抛"
+  ],
+  "rules": [
+    {
+      "tier": "team_seat",
+      "hasAny": [
+        "车位",
+        "月权益"
+      ]
+    },
+    {
+      "tier": "team_account",
+      "hasAny": [
+        "team"
+      ]
+    },
+    {
+      "tier": "team_account",
+      "categoryIn": [
+        "G Team",
+        "bugteam"
+      ]
+    },
+    {
+      "tier": "claude_kyc",
+      "hasAny": [
+        "kyc"
+      ]
+    },
+    {
+      "tier": "claude_sms",
+      "re": "(claude|克劳德)[\\s\\S]{0,25}(接马|接码|接ma)|(接马|接码|接ma)[\\s\\S]{0,25}(claude|克劳德)"
+    },
+    {
+      "tier": "claude_charge",
+      "re": "(claude|克劳德)[\\s\\S]{0,12}(pro|5x|20x)"
+    },
+    {
+      "tier": "claude_acc",
+      "hasAny": [
+        "claude",
+        "克劳德"
+      ]
+    },
+    {
+      "tier": "vcard",
+      "hasAny": [
+        "paypal"
+      ]
+    },
+    {
+      "tier": "vcard",
+      "hasAny": [
+        "虚拟卡",
+        "visa",
+        "4513",
+        "485954"
+      ]
+    },
+    {
+      "tier": "muse",
+      "hasAny": [
+        "muse"
+      ]
+    },
+    {
+      "tier": "kiro",
+      "hasAny": [
+        "kiro"
+      ]
+    },
+    {
+      "tier": "creator",
+      "hasAny": [
+        "即梦",
+        "leonardo",
+        "capcut",
+        "firefly",
+        "adobe"
+      ]
+    },
+    {
+      "tier": "google_ultra",
+      "re": "(google\\s*ai\\s*ultra|gemini\\s*ultra)|ultra[\\s\\S]{0,8}(5x|20x)"
+    },
+    {
+      "tier": "grok_ultra",
+      "hasAny": [
+        "ultra",
+        "heavy"
+      ]
+    },
+    {
+      "tier": "grok_super",
+      "re": "(supers*gro[k]?|gro[k]?s*premium|gro[k]?s*pluss*8|gros*super)"
+    },
+    {
+      "tier": "grok_free",
+      "hasAny": [
+        "gro普号",
+        "gro 普号",
+        "gro4.6",
+        "grok 普号",
+        "gro 长效",
+        "grok 普号"
+      ]
+    },
+    {
+      "tier": "grok_free",
+      "categoryIn": [
+        "gro"
+      ],
+      "hasAny": [
+        "gro普号",
+        "gro 普号",
+        "gro4.6",
+        "grok 普号",
+        "gro 长效",
+        "grok 普号"
+      ]
+    },
+    {
+      "tier": "gemini_antigrav",
+      "hasAny": [
+        "反重力",
+        "antigravity"
+      ]
+    },
+    {
+      "tier": "gemini_pro",
+      "hasAny": [
+        "gemini",
+        "google one",
+        "pixel"
+      ]
+    },
+    {
+      "tier": "gemini_pro",
+      "categoryIn": [
+        "Gemini",
+        "gemini 18个月链接"
+      ]
+    },
+    {
+      "tier": "g_free",
+      "hasAny": [
+        "g free",
+        "gfree",
+        "free号",
+        "free 号",
+        "free成品",
+        "codex free"
+      ]
+    },
+    {
+      "tier": "g_free",
+      "categoryIn": [
+        "G Free",
+        "codex free"
+      ]
+    },
+    {
+      "tier": "email",
+      "hasAny": [
+        "hotmail",
+        "outlook邮箱",
+        "icloud邮箱",
+        "gmail邮箱",
+        "企业长效谷歌邮箱"
+      ],
+      "exclude": [
+        "plus",
+        "成品",
+        "账号",
+        "codex plus",
+        "首登"
+      ]
+    },
+    {
+      "tier": "plus_student",
+      "hasAny": [
+        "学生",
+        "资格号"
+      ]
+    },
+    {
+      "tier": "plus_long",
+      "all": [
+        {
+          "hasAny": [
+            "25天",
+            "28天",
+            "30天",
+            "24小时",
+            "质保1天",
+            "质保订阅",
+            "质保一个月"
+          ]
+        },
+        {
+          "accountMarker": true
+        }
+      ]
+    },
+    {
+      "tier": "plus_quota",
+      "all": [
+        {
+          "hasAny": [
+            "重置卡",
+            "满额度"
+          ]
+        },
+        {
+          "accountMarker": true
+        }
+      ]
+    },
+    {
+      "tier": "plus_proxy",
+      "all": [
+        {
+          "hasAny": [
+            "反代"
+          ]
+        },
+        {
+          "hasAny": [
+            "plus",
+            "gpt",
+            "oai",
+            "反代专用"
+          ]
+        }
+      ]
+    },
+    {
+      "tier": "plus_proxy",
+      "all": [
+        {
+          "hasAny": [
+            "反代"
+          ]
+        },
+        {
+          "accountMarker": true
+        }
+      ]
+    },
+    {
+      "tier": "plus_ready",
+      "all": [
+        {
+          "hasAny": [
+            "已接"
+          ]
+        },
+        {
+          "accountMarker": true
+        }
+      ]
+    },
+    {
+      "tier": "plus_daily",
+      "all": [
+        {
+          "hasAny": [
+            "未接"
+          ]
+        },
+        {
+          "accountMarker": true
+        }
+      ]
+    },
+    {
+      "tier": "pro20x",
+      "all": [
+        {
+          "hasAny": [
+            "20x",
+            "10x",
+            "200"
+          ]
+        },
+        {
+          "accountMarker": true
+        }
+      ]
+    },
+    {
+      "tier": "pro5x",
+      "all": [
+        {
+          "hasAny": [
+            "5x",
+            "100刀",
+            "100美"
+          ]
+        },
+        {
+          "accountMarker": true
+        }
+      ]
+    },
+    {
+      "tier": "pro_acc",
+      "re": "(pro\\s*20x|pro\\s*10x|pro\\s*5x)[\\s\\S]{0,20}(速刷|临期)"
+    },
+    {
+      "tier": "plus_other",
+      "accountMarker": true
+    },
+    {
+      "tier": "codex_sms_pack",
+      "re": "接(马|码|🐎)",
+      "also": [
+        "次兑换",
+        "10次",
+        "50次"
+      ]
+    },
+    {
+      "tier": "codex_sms_long",
+      "re": "接(马|码|🐎)",
+      "also": [
+        "长效",
+        "月租",
+        "30-90",
+        "20-30",
+        "25-30",
+        "18-30",
+        "11-30",
+        "25天",
+        "30天"
+      ]
+    },
+    {
+      "tier": "codex_sms_once",
+      "re": "接(马|码|🐎)"
+    },
+    {
+      "tier": "codex_sms_once",
+      "categoryIn": [
+        "接马",
+        "接马链接接马",
+        "☘️SMS接码",
+        "SMS验证码/邮箱验证码"
+      ]
+    },
+    {
+      "tier": "pro20x",
+      "hasAny": [
+        "20x",
+        "10x",
+        "200"
+      ]
+    },
+    {
+      "tier": "pro5x",
+      "hasAny": [
+        "5x",
+        "100刀",
+        "100美"
+      ]
+    },
+    {
+      "tier": "plus_go",
+      "re": "(^|[^a-z])go([^a-z]|$)|go 月|go月|go 一个月"
+    },
+    {
+      "tier": "plus_year",
+      "hasAny": [
+        "年卡"
+      ]
+    },
+    {
+      "tier": "plus_selfopen",
+      "hasAny": [
+        "自助开通"
+      ]
+    },
+    {
+      "tier": "plus_charge_ios",
+      "hasAny": [
+        "ios",
+        "美区"
+      ]
+    },
+    {
+      "tier": "plus_charge_bill",
+      "hasAny": [
+        "账单"
+      ]
+    },
+    {
+      "tier": "plus_charge_ph",
+      "hasAny": [
+        "菲区"
+      ]
+    },
+    {
+      "tier": "plus_charge_other",
+      "categoryIn": [
+        "G Plus / Pro 官方代充",
+        "G官方充值",
+        "Chat官方直充",
+        "codex会员直充你帐号（非成品）",
+        "Codex | Gemini  | Claude | G r o k",
+        "gemini 18个月链接",
+        "G PLUS自助开通（*仅免费试用资格新号） 新号都可以",
+        "plus pro额度重置卡"
+      ]
+    },
+    {
+      "tier": "plus_other",
+      "categoryIn": [
+        "新渠道Plus 高级权益(质保2～30)",
+        "G-OpenAI PLUS账号",
+        "codex plus账号",
+        "G Plus成品账号",
+        "G Pro成品账号",
+        "GptPlus学生优惠成品/代充",
+        "G pro 20x"
+      ]
+    },
+    {
+      "tier": "email",
+      "categoryIn": [
+        "邮箱账号",
+        "邮箱"
+      ]
+    },
+    {
+      "tier": "misc"
+    }
+  ]
+}

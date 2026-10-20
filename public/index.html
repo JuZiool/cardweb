@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>卡网比价</title>
+<style>
+  :root {
+    --bg: #faf7f1;
+    --panel: #fffdf8;
+    --panel-2: #f4efe5;
+    --panel-3: #efe8db;
+    --border: #e4dccc;
+    --border-soft: #ece5d7;
+    --text: #3b362d;
+    --text-dim: #8a8175;
+    --text-faint: #a9a094;
+    --accent: #a9762f;
+    --accent-soft: #f0e2c8;
+    --accent-line: #d9b877;
+    --ok: #4d8a5b;
+    --warn: #b5842c;
+    --danger: #b8534f;
+    --sidebar: 300px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.5 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  header {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 2px rgba(90, 74, 48, .04);
+  }
+  .brand { font-weight: 600; font-size: 15px; white-space: nowrap; margin-right: 6px; letter-spacing: .02em; }
+  .brand span { color: var(--accent); }
+
+  .search-wrap { position: relative; flex: 0 1 300px; min-width: 160px; display: flex; }
+  .search-wrap input {
+    width: 100%; padding-right: 30px;
+  }
+  .search-wrap button {
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    padding: 2px 7px; font-size: 11px; line-height: 1.2;
+    background: transparent; border: none; color: var(--text-faint); border-radius: 4px;
+  }
+  .search-wrap button:hover { color: var(--danger); background: var(--panel-2); }
+
+  input[type="text"] {
+    flex: 1 1 auto; min-width: 160px; background: var(--panel);
+    border: 1px solid var(--border); color: var(--text); border-radius: 6px;
+    padding: 7px 10px; font-size: 13px; outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input[type="text"]:focus {
+    border-color: var(--accent-line);
+    box-shadow: 0 0 0 3px rgba(169, 118, 47, .1);
+  }
+  input[type="text"]::placeholder { color: var(--text-faint); }
+
+  button {
+    background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 6px; padding: 7px 14px; font-size: 13px; cursor: pointer;
+    white-space: nowrap; transition: background .15s, border-color .15s;
+  }
+  button:hover:not(:disabled) { background: var(--panel-2); border-color: var(--accent-line); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary {
+    background: var(--accent); border-color: var(--accent); color: #fffaf0;
+  }
+  button.primary:hover:not(:disabled) { background: #96682a; border-color: #96682a; }
+
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+    color: var(--text-dim); white-space: nowrap; padding: 4px 10px;
+    border-radius: 999px; background: var(--panel-2);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #c3b9a8; flex: 0 0 auto; }
+  .dot.running { background: var(--ok); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+  main {
+    flex: 1 1 auto; display: grid; grid-template-columns: var(--sidebar) 1fr;
+    min-height: 0; overflow: hidden;
+  }
+
+  aside {
+    min-height: 0; overflow-y: auto; overflow-x: hidden;
+    background: var(--panel-2); border-right: 1px solid var(--border);
+    padding: 8px 0 24px;
+  }
+  section.right { min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+  aside::-webkit-scrollbar, .table-wrap::-webkit-scrollbar { width: 10px; height: 10px; }
+  aside::-webkit-scrollbar-thumb, .table-wrap::-webkit-scrollbar-thumb {
+    background: #d8cfbe; border-radius: 6px; border: 2px solid var(--panel-2);
+  }
+  aside::-webkit-scrollbar-thumb:hover, .table-wrap::-webkit-scrollbar-thumb:hover { background: #c3b9a5; }
+  aside::-webkit-scrollbar-track, .table-wrap::-webkit-scrollbar-track { background: transparent; }
+
+  .side-group-title {
+    font-size: 11px; letter-spacing: .1em; color: var(--text-faint);
+    padding: 14px 16px 6px;
+  }
+
+  /* ---------- 分组折叠头 ---------- */
+  .group-head {
+    display: flex; align-items: center; gap: 7px;
+    padding: 10px 14px 9px 12px;
+    background: var(--panel-2);
+    border-top: 1px solid var(--border-soft);
+    border-bottom: 1px solid var(--border-soft);
+    cursor: pointer;
+    user-select: none;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    transition: background .12s;
+  }
+  .group-head:first-child { border-top: none; }
+  .group-head:hover { background: var(--panel-3); }
+  .group-head .chev {
+    flex: 0 0 auto; font-size: 10px; color: var(--text-faint);
+    transition: transform .16s ease;
+    display: inline-block; width: 10px; text-align: center;
+  }
+  .group-head.collapsed .chev { transform: rotate(-90deg); }
+  .group-head .group-name {
+    font-size: 12px; font-weight: 600; color: var(--text);
+    letter-spacing: .02em; white-space: nowrap;
+  }
+  .group-head .group-meta {
+    font-size: 11px; color: var(--text-faint);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 1 1 auto;
+  }
+  .group-head .group-count {
+    flex: 0 0 auto; font-size: 10px; color: var(--text-dim);
+    background: var(--panel); border: 1px solid var(--border-soft);
+    border-radius: 999px; padding: 0 7px;
+  }
+  .group-head.collapsed .group-count {
+    background: var(--accent-soft); border-color: var(--accent-line); color: #8a5f22;
+  }
+
+  .tier {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 9px 16px; cursor: pointer; border-left: 3px solid transparent;
+    transition: background .12s;
+  }
+  .tier:hover { background: var(--panel-3); }
+  .tier.active {
+    background: var(--accent-soft);
+    border-left-color: var(--accent);
+  }
+  .tier-main { min-width: 0; flex: 1 1 auto; }
+  .tier-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+  .tier.active .tier-name { color: #6d4a18; font-weight: 600; }
+  .tier-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .tier-min { color: var(--ok); font-weight: 500; }
+  .tier-count {
+    flex: 0 0 auto; font-size: 11px; color: var(--text-dim);
+    background: var(--panel); border: 1px solid var(--border-soft);
+    border-radius: 999px; padding: 1px 8px;
+  }
+  .tier.active .tier-count {
+    background: #fff8ea; border-color: var(--accent-line); color: #8a5f22;
+  }
+
+  .toolbar {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    background: var(--panel); flex-wrap: wrap;
+  }
+  .toolbar h2 { font-size: 15px; margin: 0; font-weight: 600; color: var(--text); }
+  .toolbar .spec { font-size: 12px; color: var(--text-dim); }
+  .toolbar .meta { font-size: 12px; color: var(--text-faint); }
+  .spacer { flex: 1 1 auto; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); cursor: pointer; }
+  .toggle input { accent-color: var(--accent); }
+
+  .note-bar {
+    flex: 0 0 auto; padding: 7px 16px; font-size: 12px; color: #8a5f22;
+    background: #fdf4e2; border-bottom: 1px solid #f0e3c6;
+  }
+
+  .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; background: var(--panel); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  thead th {
+    position: sticky; top: 0; z-index: 2; background: var(--panel-2);
+    text-align: left; font-weight: 500; color: var(--text-dim); font-size: 12px;
+    padding: 9px 10px; border-bottom: 1px solid var(--border);
+    white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  thead th:hover { color: var(--text); background: var(--panel-3); }
+  thead th.sorted { color: var(--accent); font-weight: 600; }
+  tbody td { padding: 9px 10px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+  tbody tr:hover { background: #fdfaf3; }
+  .price { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); white-space: nowrap; }
+  .price.best { color: var(--ok); }
+  .shop { font-size: 12px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 96px; }
+  .stock { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
+  .stock.zero { color: var(--text-faint); }
+  .name a { color: var(--text); text-decoration: none; line-height: 1.45; display: block; word-break: break-word; }
+  .name a:hover { color: var(--accent); text-decoration: underline; }
+  tr.out-of-stock .name a { color: var(--text-faint); }
+  tr.out-of-stock .price { color: var(--text-faint); }
+
+  .wtag {
+    display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 999px;
+    white-space: nowrap; font-weight: 500; border: 1px solid transparent;
+  }
+
+  mark {
+    background: #f7e4b8; color: #7d551c;
+    padding: 0 2px; border-radius: 2px;
+  }
+  .cat-tag {
+    display: inline-block; font-size: 10px; color: var(--text-faint);
+    margin-bottom: 2px; letter-spacing: .02em;
+  }
+  .wtag.subscription { background: #eaf3ea; color: #3f7a4e; border-color: #cfe4d2; }
+  .wtag.first_login { background: #fdf3df; color: #94681f; border-color: #efdfbb; }
+  .wtag.none { background: #fbeae9; color: #a4463f; border-color: #f0cfcc; }
+  .wtag.unknown { background: #f2efe8; color: #918878; border-color: #e4ded1; }
+
+  .empty { padding: 60px 20px; text-align: center; color: var(--text-faint); font-size: 13px; line-height: 2; }
+
+
+  /* ---------- 商品详情抽屉 ---------- */
+
+
+  .band-warn { color: var(--warn); font-size: 11px; }
+  .warn-tag {
+    display: inline-block; font-size: 9.5px; padding: 0 4px; margin-left: 4px;
+    border-radius: 3px; vertical-align: 1px;
+    background: #fdf3df; color: #94681f; border: 1px solid #efdfbb;
+  }
+  .warn-tag.hi { background: #fbeae9; color: #a4463f; border-color: #f0cfcc; }
+
+  .act { text-align: right; white-space: nowrap; }
+  .go {
+    display: inline-block; font-size: 11px; padding: 2px 7px;
+    border-radius: 5px; text-decoration: none;
+    background: var(--accent-soft); color: #7d551c;
+    border: 1px solid var(--accent-line);
+    transition: background .14s, color .14s, border-color .14s;
+  }
+  .go:hover { background: var(--accent); color: #fffaf0; border-color: var(--accent); }
+  tr.out-of-stock .go { opacity: .55; }
+
+  .mini-wrap { margin-top: 3px; display: flex; flex-direction: column; gap: 1px; }
+  .mini {
+    font-size: 11px; color: var(--ok); line-height: 1.45; display: block;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mini.dim { color: var(--text-faint); }
+  .mini.conflict { color: #a4463f; white-space: normal; }
+  .dconflict {
+    margin: 0 0 14px; padding: 9px 12px; border-radius: 6px;
+    background: #fbeae9; border: 1px solid #f0cfcc; color: #a4463f;
+    font-size: 12.5px; line-height: 1.6;
+  }
+
+
+  .drawer-mask {
+    position: fixed; inset: 0; background: rgba(60, 48, 30, .22);
+    opacity: 0; pointer-events: none; transition: opacity .18s; z-index: 90;
+  }
+  .drawer-mask.show { opacity: 1; pointer-events: auto; }
+
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 92vw);
+    background: var(--panel); border-left: 1px solid var(--border);
+    box-shadow: -10px 0 30px rgba(70, 55, 30, .12);
+    transform: translateX(100%); transition: transform .22s ease;
+    z-index: 95; display: flex; flex-direction: column;
+  }
+  .drawer.show { transform: translateX(0); }
+
+  .drawer-head {
+    flex: 0 0 auto; display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    background: var(--panel-2);
+  }
+  .drawer-title { flex: 1 1 auto; font-size: 14px; font-weight: 600; line-height: 1.5; word-break: break-word; }
+  .drawer-close {
+    flex: 0 0 auto; padding: 2px 9px; font-size: 13px;
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+  }
+  .drawer-close:hover { color: var(--danger); border-color: var(--danger); background: transparent; }
+
+  .drawer-body {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    padding: 16px; font-size: 13px; line-height: 1.75; color: var(--text);
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .drawer-body::-webkit-scrollbar { width: 10px; }
+  .drawer-body::-webkit-scrollbar-thumb { background: #d8cfbe; border-radius: 6px; border: 2px solid var(--panel); }
+
+  .dmeta {
+    display: grid; grid-template-columns: auto 1fr; gap: 6px 12px;
+    margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px dashed var(--border);
+    font-size: 12.5px;
+  }
+  .dmeta dt { color: var(--text-faint); white-space: nowrap; }
+  .dmeta dd { margin: 0; color: var(--text); }
+  .dkey { color: var(--ok); }
+
+  .dsection-title {
+    font-size: 11px; letter-spacing: .08em; color: var(--text-faint);
+    margin: 18px 0 8px; padding-top: 12px; border-top: 1px solid var(--border-soft);
+  }
+  .dtext { white-space: pre-wrap; color: var(--text); }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: #4a4338; border: 1px solid #5c5346; color: #fdf8ee;
+    padding: 10px 18px; border-radius: 8px; font-size: 13px; opacity: 0;
+    pointer-events: none; transition: opacity .2s, transform .2s; z-index: 100; max-width: 80vw;
+    box-shadow: 0 8px 24px rgba(60, 48, 30, .18);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.error { background: #7d3f3b; border-color: #96504b; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">卡网<span>比价</span></div>
+  <div class="search-wrap">
+    <input id="search" type="text" placeholder="搜索商品名，如 日抛 / 已接马 / 越南实卡" autocomplete="off" />
+    <button id="btnClearSearch" title="清空搜索" style="display:none">✕</button>
+  </div>
+  <input id="shopUrl" type="text" placeholder="粘贴店铺链接" />
+  <button id="btnAdd" class="primary">添加店铺</button>
+  <button id="btnFetchAll">立即抓取</button>
+  <span id="statusPill" class="status-pill"><i class="dot"></i><span>空闲</span></span>
+</header>
+
+<main>
+  <aside id="tierList"></aside>
+  <section class="right">
+    <div class="toolbar">
+      <h2 id="tierTitle">商品</h2>
+      <span id="tierSpec" class="spec"></span>
+      <span id="tierMeta" class="meta"></span>
+      <span class="spacer"></span>
+      <label class="toggle"><input type="checkbox" id="hideZero" checked /> 隐藏缺货</label>
+    </div>
+    <div id="noteBar" class="note-bar" style="display:none"></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="name" style="width:auto">商品</th>
+            <th data-sort="shop" style="width:96px">店铺</th>
+            <th data-sort="warranty" style="width:74px">质保</th>
+            <th data-sort="price" style="width:82px">价格</th>
+            <th data-sort="stock" style="width:58px">库存</th>
+            <th style="width:56px;cursor:default"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="empty" class="empty" style="display:none"></div>
+    </div>
+  </section>
+</main>
+
+<div id="drawerMask" class="drawer-mask"></div>
+<aside id="drawer" class="drawer">
+  <div class="drawer-head">
+    <div class="drawer-title" id="drawerTitle">商品详情</div>
+    <button id="drawerClose" class="drawer-close">✕</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const state = {
+  products: [],
+  groups: [],
+  activeKey: null,
+  sort: 'price',
+  sortDesc: false,
+  keyword: '',
+  hideZero: true,
+  shops: [],
+  scheduler: null,
+  collapsed: (() => {
+    try { return JSON.parse(localStorage.getItem('cardweb.collapsed') || '{}'); }
+    catch { return {}; }
+  })(),
+  warrantyLabels: { subscription: '有质保', first_login: '仅首登', none: '无质保', unknown: '未注明' },
+};
+
+function toast(msg, isError) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.className = 'toast'; }, 3400);
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function money(n) {
+  if (n == null) return '—';
+  return '¥' + (n >= 1000 ? n.toFixed(0) : n.toFixed(2));
+}
+
+// ---------- 状态 ----------
+function renderStatus() {
+  const s = state.scheduler || {};
+  const pill = $('#statusPill');
+  const dot = pill.querySelector('.dot');
+  const label = pill.querySelector('span:last-child');
+  if (s.running || s.queued) {
+    dot.className = 'dot running';
+    const r = s.round || {};
+    const cur = s.current ? ` · ${s.current.nickname || s.current.token}` : '';
+    label.textContent = `抓取中 ${r.done || 0}/${r.total || 0}${cur}`;
+  } else {
+    dot.className = 'dot';
+    label.textContent = '空闲';
+  }
+  $('#btnFetchAll').disabled = !!(s.running || s.queued);
+}
+
+// ---------- 店铺 ----------
+// 店铺条不对外展示（页面要给他人使用，避免暴露店铺名单与删改入口）
+function renderShops() { /* 无 UI */ }
+
+async function loadShops() {
+  const { shops, scheduler } = await api('/api/shops');
+  state.shops = shops; state.scheduler = scheduler;
+  renderShops(); renderStatus();
+}
+
+// ---------- 标准商品列表 ----------
+async function loadProducts() {
+  const { groups, products } = await api('/api/products');
+  state.groups = groups;
+  state.products = products;
+  if (!products.some((p) => p.key === state.activeKey)) {
+    state.activeKey = products[0]?.key || null;
+  }
+  renderSidebar();
+  renderOffers();
+}
+
+function renderSidebar() {
+  const aside = $('#tierList');
+  if (!state.products.length) {
+    aside.innerHTML = '<div class="empty">还没有商品<br>在顶部粘贴链接添加店铺</div>';
+    return;
+  }
+  let html = '';
+  for (const g of state.groups) {
+    const items = state.products.filter((p) => p.group === g.key);
+    if (!items.length) continue;
+    const collapsed = state.collapsed[g.key];
+    const total = items.reduce((n, p) => n + p.offers, 0);
+    const openCount = items.filter((p) => p.inStock > 0).length;
+    html += `<div class="group-head ${collapsed ? 'collapsed' : ''}" data-group="${g.key}">
+      <span class="chev">▾</span>
+      <span class="group-name">${esc(g.name)}</span>
+      <span class="group-meta">${items.length} 项 · ${openCount} 有货</span>
+      <span class="group-count">${total}</span>
+    </div>`;
+    if (collapsed) continue;
+    html += items.map((p) => {
+      const belowBand = p.band && p.minInStock != null && p.minInStock < p.band.min;
+      const priceTxt = p.minInStock != null
+        ? `最低 <span class="tier-min">${money(p.minInStock)}</span>` +
+          (belowBand ? ` <span class="band-warn" title="低于该档正常区间 ¥${p.band.min}+，可能不是官方订阅">⚠</span>` : '')
+        : '暂无有货';
+      return `<div class="tier ${p.key === state.activeKey ? 'active' : ''}" data-key="${p.key}">
+        <div class="tier-main">
+          <div class="tier-name">${esc(p.name)}</div>
+          <div class="tier-sub">${priceTxt}</div>
+        </div>
+        <span class="tier-count">${p.offers}</span>
+      </div>`;
+    }).join('');
+  }
+  aside.innerHTML = html;
+
+  aside.querySelectorAll('[data-group]').forEach((el) => {
+    el.onclick = () => {
+      const k = el.dataset.group;
+      state.collapsed[k] = !state.collapsed[k];
+      try { localStorage.setItem('cardweb.collapsed', JSON.stringify(state.collapsed)); } catch {}
+      renderSidebar();
+    };
+  });
+
+  aside.querySelectorAll('[data-key]').forEach((el) => {
+    el.onclick = () => {
+      state.activeKey = el.dataset.key;
+      if (state.keyword) { state.keyword = ''; $('#search').value = ''; $('#btnClearSearch').style.display = 'none'; }
+      renderSidebar();
+      renderOffers();
+    };
+  });
+}
+
+// ---------- 报价 ----------
+async function renderOffers() {
+  const tbody = $('#tbody');
+  const empty = $('#empty');
+
+  // 搜索模式优先：命中跨分类显示
+  if (state.keyword) return renderSearch();
+
+  if (!state.activeKey) {
+    tbody.innerHTML = ''; empty.style.display = 'block'; empty.textContent = '暂无数据';
+    return;
+  }
+  const p = state.products.find((x) => x.key === state.activeKey);
+  $('#tierTitle').textContent = p?.name || '商品';
+  $('#tierSpec').textContent = p?.spec || '';
+  $('#tierMeta').textContent = p
+    ? `${p.offers} 条报价 · ${p.inStock} 有货 · ${p.shops} 家店`
+    : '';
+
+  const note = $('#noteBar');
+  const notes = [];
+  if (p?.note) notes.push(p.note);
+  if (p?.band && p?.minInStock != null && p.minInStock < p.band.min) {
+    notes.push(`本档正常价格区间为 ¥${p.band.min} ~ ¥${p.band.max}；当前最低价 ¥${p.minInStock} 明显偏低，注意核实是否为额度、中转或非官方渠道`);
+  }
+  if (notes.length) { note.style.display = 'block'; note.textContent = '⚠ ' + notes.join('　｜　'); }
+  else note.style.display = 'none';
+
+  const params = new URLSearchParams({
+    in_stock: state.hideZero ? '1' : '0',
+    sort: state.sort === 'shop' ? 'price' : state.sort,
+  });
+  const data = await api(`/api/products/${state.activeKey}/offers?${params}`);
+  const list = data.offers;
+
+  const rows = state.sort === 'shop'
+    ? [...list].sort((a, b) => a.shopName.localeCompare(b.shopName, 'zh'))
+    : list;
+  const sorted = state.sortDesc ? [...rows].reverse() : rows;
+  const best = sorted.find((o) => (o.stock || 0) > 0 && o.price > 0)?.price ?? null;
+  const labels = data.warrantyLabels || state.warrantyLabels;
+
+  tbody.innerHTML = sorted.map((o) => {
+    const zero = !o.stock;
+    const w = o.warranty || 'unknown';
+    const extra = [
+      o.delivery ? `<span class="mini" title="发货格式">📦 ${esc(o.delivery.length > 46 ? o.delivery.slice(0, 46) + '…' : o.delivery)}</span>` : '',
+      o.afterSale ? `<span class="mini dim" title="售后条款">${esc(o.afterSale.length > 60 ? o.afterSale.slice(0, 60) + '…' : o.afterSale)}</span>` : '',
+      o.conflict ? `<span class="mini conflict" title="标题与描述矛盾，下单前务必核实">⚠ ${esc(o.conflict)}</span>` : '',
+    ].join('');
+    return `<tr class="${zero ? 'out-of-stock' : ''}">
+      <td class="name">
+        <a href="#" data-detail="${o.id}" title="点击查看完整说明">${esc(o.name)}</a>
+        ${extra ? `<div class="mini-wrap">${extra}</div>` : ''}
+      </td>
+      <td class="shop">${esc(o.shopName)}</td>
+      <td><span class="wtag ${w}">${esc(labels[w] || w)}</span></td>
+      <td><span class="price ${best != null && o.price === best && !zero ? 'best' : ''}">${money(o.price)}</span>${
+        o.suspect === 'below' ? `<span class="warn-tag" title="低于正常区间 ¥${o.band.min}+，可能是额度或非官方渠道">偏低</span>`
+        : o.suspect === 'above' ? `<span class="warn-tag hi" title="高于正常区间 ¥${o.band.max}，注意溢价">偏高</span>` : ''}</td>
+      <td class="stock ${zero ? 'zero' : ''}">${zero ? '缺货' : o.stock}</td>
+      <td class="act"><a class="go" href="${esc(o.link)}" target="_blank" rel="noopener" title="打开原店铺商品页">购买</a></td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('[data-detail]').forEach((el) => {
+    el.onclick = (e) => { e.preventDefault(); openDetail(Number(el.dataset.detail)); };
+  });
+
+  if (!sorted.length) {
+    empty.style.display = 'block';
+    empty.innerHTML = state.hideZero
+      ? '该商品当前没有有货报价<br><span style="font-size:12px">取消勾选「隐藏缺货」查看全部</span>'
+      : '暂无报价';
+  } else {
+    empty.style.display = 'none';
+  }
+
+  document.querySelectorAll('thead th').forEach((th) => {
+    th.classList.toggle('sorted', th.dataset.sort === state.sort);
+  });
+}
+
+// ---------- 搜索 ----------
+function hl(text, kw) {
+  const t = esc(text);
+  if (!kw) return t;
+  const k = esc(kw).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return t.replace(new RegExp('(' + k + ')', 'gi'), '<mark>$1</mark>');
+}
+
+async function renderSearch() {
+  const tbody = $('#tbody');
+  const empty = $('#empty');
+  const kw = state.keyword;
+
+  $('#tierTitle').textContent = '搜索结果';
+  $('#tierSpec').textContent = `“${kw}”`;
+  $('#noteBar').style.display = 'none';
+
+  const params = new URLSearchParams({
+    q: kw,
+    in_stock: state.hideZero ? '1' : '0',
+    limit: '500',
+  });
+  const data = await api(`/api/search?${params}`);
+  const list = data.offers;
+
+  $('#tierMeta').textContent = `${data.total} 条结果`;
+
+  let rows = list;
+  if (state.sort === 'shop') rows = [...list].sort((a, b) => a.shopName.localeCompare(b.shopName, 'zh'));
+  else if (state.sort === 'warranty') rows = [...list].sort((a, b) => {
+    const w = { subscription: 0, first_login: 1, none: 2, unknown: 3 };
+    return (w[a.warranty] ?? 9) - (w[b.warranty] ?? 9) || a.price - b.price;
+  });
+  else if (state.sort === 'price_desc') rows = [...list].sort((a, b) => b.price - a.price);
+  else if (state.sort === 'name') rows = [...list].sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+  if (state.sort === 'price' && state.sortDesc) rows = [...rows].reverse();
+
+  const best = rows.find((o) => (o.stock || 0) > 0 && o.price > 0)?.price ?? null;
+  const labels = state.warrantyLabels;
+
+  tbody.innerHTML = rows.map((o) => {
+    const zero = !o.stock;
+    const w = o.warranty || 'unknown';
+    return `<tr class="${zero ? 'out-of-stock' : ''}">
+      <td class="name">
+        <div class="cat-tag">${esc(o.productName)}</div>
+        <a href="#" data-detail="${o.id}" title="点击查看完整说明">${hl(o.name, kw)}</a>
+        ${o.delivery ? `<div class="mini-wrap"><span class="mini">📦 ${esc(o.delivery.length > 46 ? o.delivery.slice(0, 46) + '…' : o.delivery)}</span></div>` : ''}
+      </td>
+      <td class="shop">${esc(o.shopName)}</td>
+      <td><span class="wtag ${w}">${esc(labels[w] || w)}</span></td>
+      <td><span class="price ${best != null && o.price === best && !zero ? 'best' : ''}">${money(o.price)}</span>${
+        o.suspect === 'below' ? `<span class="warn-tag" title="低于正常区间 ¥${o.band.min}+，可能是额度或非官方渠道">偏低</span>`
+        : o.suspect === 'above' ? `<span class="warn-tag hi" title="高于正常区间 ¥${o.band.max}，注意溢价">偏高</span>` : ''}</td>
+      <td class="stock ${zero ? 'zero' : ''}">${zero ? '缺货' : o.stock}</td>
+      <td class="act"><a class="go" href="${esc(o.link)}" target="_blank" rel="noopener" title="打开原店铺商品页">购买</a></td>
+    </tr>`;
+  }).join('');
+
+  if (!rows.length) {
+    empty.style.display = 'block';
+    empty.innerHTML = `没有匹配「${esc(kw)}」的商品` +
+      (state.hideZero ? '<br><span style="font-size:12px">试试取消「隐藏缺货」</span>' : '');
+  } else {
+    empty.style.display = 'none';
+  }
+
+  tbody.querySelectorAll('[data-detail]').forEach((el) => {
+    el.onclick = (e) => { e.preventDefault(); openDetail(Number(el.dataset.detail)); };
+  });
+
+  document.querySelectorAll('thead th').forEach((th) => {
+    th.classList.toggle('sorted', th.dataset.sort === state.sort);
+  });
+}
+
+
+// ---------- 详情 ----------
+async function openDetail(id) {
+  const mask = $('#drawerMask');
+  const box = $('#drawer');
+  const body = $('#drawerBody');
+  const title = $('#drawerTitle');
+  mask.classList.add('show');
+  box.classList.add('show');
+  title.textContent = '加载中…';
+  body.innerHTML = '<div class="empty">加载中…</div>';
+  try {
+    const { product: p } = await api('/api/product/' + id);
+    title.textContent = p.name;
+    const wl = state.warrantyLabels;
+    const rows = [
+      ['店铺', esc(p.shopName)],
+      ['价格', `<b>${money(p.price)}</b>`],
+      ['库存', p.stock ? String(p.stock) : '缺货'],
+      ['质保', `<span class="wtag ${p.warranty || 'unknown'}">${esc(wl[p.warranty] || '未注明')}</span>`],
+      ['发货', p.delivery ? `<span class="dkey">${esc(p.delivery)}</span>` : '未注明'],
+      ['原分类', esc(p.category_raw || '—')],
+    ];
+    let html = '<dl class="dmeta">' + rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('') + '</dl>';
+    if (p.conflict) {
+      html += `<div class="dconflict">⚠ 标题与描述矛盾：${esc(p.conflict)}<br><span style="opacity:.8">下单前请以描述为准，或先咨询店主。</span></div>`;
+    }
+    if (p.after_sale) {
+      html += `<div class="dsection-title">售后 / 质保条款</div><div class="dtext">${esc(p.after_sale)}</div>`;
+    }
+    if (p.desc_text) {
+      html += `<div class="dsection-title">商品完整说明</div><div class="dtext">${esc(p.desc_text)}</div>`;
+    } else {
+      html += '<div class="dsection-title">商品完整说明</div><div class="dtext" style="color:var(--text-faint)">该商品没有填写描述</div>';
+    }
+    html += `<div class="dsection-title">原站链接</div><div><a href="${esc(p.link)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(p.link)}</a></div>`;
+    body.innerHTML = html;
+    body.scrollTop = 0;
+  } catch (err) {
+    body.innerHTML = '<div class="empty">加载失败：' + esc(err.message) + '</div>';
+  }
+}
+
+function closeDetail() {
+  $('#drawerMask').classList.remove('show');
+  $('#drawer').classList.remove('show');
+}
+
+$('#drawerClose').onclick = closeDetail;
+$('#drawerMask').onclick = closeDetail;
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDetail(); });
+
+// ---------- 事件 ----------
+$('#btnAdd').onclick = async () => {
+  const url = $('#shopUrl').value.trim();
+  if (!url) return toast('请先粘贴店铺链接', true);
+  const btn = $('#btnAdd');
+  btn.disabled = true; btn.textContent = '添加中…';
+  try {
+    const { shop } = await api('/api/shops', { method: 'POST', body: JSON.stringify({ url }) });
+    $('#shopUrl').value = '';
+    await loadShops();
+    toast(`已添加 ${shop.nickname}，开始抓取…`);
+    await api('/api/fetch-all', { method: 'POST' });
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = '添加店铺';
+  }
+};
+
+$('#btnFetchAll').onclick = async () => {
+  try {
+    await api('/api/fetch-all', { method: 'POST' });
+    toast('已开始全量抓取');
+    $('#btnFetchAll').disabled = true;
+  } catch (err) { toast(err.message, true); }
+};
+
+$('#shopUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btnAdd').click(); });
+$('#hideZero').onchange = (e) => { state.hideZero = e.target.checked; renderOffers(); };
+
+// ---- 搜索 ----
+function applySearch(raw) {
+  const kw = String(raw || '').trim();
+  state.keyword = kw;
+  $('#btnClearSearch').style.display = kw ? 'block' : 'none';
+  if (kw) renderSearch();
+  else { renderSidebar(); renderOffers(); }
+}
+
+let searchTimer = null;
+$('#search').addEventListener('input', (e) => {
+  clearTimeout(searchTimer);
+  const v = e.target.value;
+  searchTimer = setTimeout(() => applySearch(v), 220);
+});
+$('#search').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.target.value = ''; applySearch(''); }
+});
+$('#btnClearSearch').onclick = () => {
+  $('#search').value = '';
+  applySearch('');
+  $('#search').focus();
+};
+
+document.querySelectorAll('thead th').forEach((th) => {
+  th.onclick = () => {
+    const s = th.dataset.sort;
+    if (state.sort === s) state.sortDesc = !state.sortDesc;
+    else { state.sort = s; state.sortDesc = false; }
+    renderOffers();
+  };
+});
+
+// ---------- SSE ----------
+function connectSSE() {
+  const es = new EventSource('/api/events');
+  es.onmessage = (e) => {
+    let evt;
+    try { evt = JSON.parse(e.data); } catch { return; }
+    switch (evt.type) {
+      case 'round:start':
+        state.scheduler = { ...(state.scheduler || {}), running: true, queued: false,
+          round: { done: 0, total: evt.total || 0 } };
+        renderStatus(); break;
+      case 'shop:start':
+        if (state.scheduler) state.scheduler.current = { token: evt.token, nickname: evt.nickname };
+        renderStatus(); break;
+      case 'shop:ok':
+        toast(`${evt.nickname}：${evt.total} 件（新增 ${evt.added}，变动 ${evt.changed}）`);
+        loadShops().then(loadProducts); break;
+      case 'shop:error':
+        toast(`${evt.nickname || evt.token} 抓取失败：${evt.error}`, true);
+        loadShops(); break;
+      case 'round:end':
+        state.scheduler = { ...(state.scheduler || {}), running: false, queued: false, current: null };
+        renderStatus(); loadShops().then(loadProducts); break;
+    }
+  };
+  es.onerror = () => { es.close(); setTimeout(connectSSE, 3000); };
+}
+
+(async () => {
+  try { await loadShops(); await loadProducts(); }
+  catch (err) { toast('加载失败：' + err.message, true); }
+  connectSSE();
+  setInterval(async () => {
+    try {
+      const { scheduler } = await api('/api/status');
+      state.scheduler = scheduler; renderStatus();
+    } catch { /* ignore */ }
+  }, 5000);
+})();
+</script>
+</body>
+</html>

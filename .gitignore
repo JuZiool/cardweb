@@ -1,0 +1,12 @@
+# 运行数据（价格快照、SQLite）
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# 临时文件
+cw.log
+server.log
+out.txt
+o.txt
+s.json

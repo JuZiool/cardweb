@@ -1,0 +1,14 @@
+{
+  "name": "cardweb",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "卡网比价 - 多家发卡店铺商品聚合与比价",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}
