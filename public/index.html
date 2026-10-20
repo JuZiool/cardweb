@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>卡网比价</title>
 <style>
   :root {
@@ -62,6 +62,13 @@
     box-shadow: 0 0 0 3px rgba(169, 118, 47, .1);
   }
   input[type="text"]::placeholder { color: var(--text-faint); }
+
+  select {
+    background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 6px; padding: 6px 8px; font-size: 12px; outline: none;
+    font-family: inherit;
+  }
+  select:focus { border-color: var(--accent-line); }
 
   button {
     background: var(--panel); border: 1px solid var(--border); color: var(--text);
@@ -436,11 +443,112 @@
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .toast.error { background: #7d3f3b; border-color: #96504b; }
+
+  /* ---------- 移动端 ---------- */
+  .mobile-only { display: none; }
+  .side-mask {
+    position: fixed; inset: 0; background: rgba(60, 48, 30, .22);
+    opacity: 0; pointer-events: none; transition: opacity .18s; z-index: 93;
+  }
+  .side-mask.show { opacity: 1; pointer-events: auto; }
+
+  @media (max-width: 900px) {
+    html, body { height: 100%; height: 100dvh; }
+    .mobile-only { display: inline-flex; align-items: center; }
+    select.mobile-only { display: inline-block; }
+
+    header {
+      flex-wrap: wrap; gap: 6px 8px;
+      padding: 8px 10px; padding-top: max(8px, env(safe-area-inset-top));
+    }
+    .brand { font-size: 14px; margin-right: 0; order: 2; }
+    header button { padding: 6px 10px; font-size: 12.5px; }
+    #btnSide { order: 1; padding: 6px 9px; font-size: 12.5px; }
+    #statusPill { order: 3; margin-left: auto; font-size: 11.5px; padding: 4px 8px; }
+    .search-wrap { order: 4; flex: 1 1 100%; min-width: 0; }
+    .search-wrap input, input[type="text"] { min-width: 0; font-size: 13px; }
+    #shopUrl { order: 5; flex: 1 1 90px; min-width: 0; }
+    #btnAdd { order: 6; }
+    #btnFetchAll { order: 7; }
+
+    /* 侧栏改为抽屉 */
+    main { grid-template-columns: 1fr; }
+    aside#tierList {
+      position: fixed; top: 0; bottom: 0; left: 0;
+      width: min(85vw, 320px); z-index: 94;
+      transform: translateX(-100%); transition: transform .2s ease;
+      box-shadow: 8px 0 28px rgba(70, 55, 30, .18);
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
+      -webkit-overflow-scrolling: touch;
+    }
+    aside#tierList.show { transform: translateX(0); }
+
+    .toolbar { padding: 8px 10px; gap: 6px 10px; }
+    .toolbar h2 { font-size: 14.5px; }
+    .toolbar .spec { font-size: 11.5px; flex: 1 1 100%; order: 9; }
+    .toolbar .meta { font-size: 11.5px; }
+    .toolbar .spacer { display: none; }
+    .toggle { font-size: 12px; }
+    .last-fetch { padding-left: 0; border-left: none; font-size: 10.5px; }
+    .note-bar { padding: 7px 10px; font-size: 11.5px; }
+
+    /* 走势面板纵向堆叠 */
+    .trend-panel { display: block; padding: 8px 10px; }
+    .trend-left { flex: none; width: 100%; }
+    .pick-panel { margin-top: 8px; }
+    .pick-card { flex-wrap: wrap; row-gap: 4px; align-items: flex-start; }
+    .pick-name { flex: 1 1 100%; order: 2; white-space: normal; }
+    .pick-meta { order: 3; flex: 1 1 100%; flex-wrap: wrap; row-gap: 4px; }
+    .pick-card .go { order: 4; margin-left: auto; }
+
+    /* 表格改为卡片列表 */
+    .table-wrap { -webkit-overflow-scrolling: touch; }
+    table, tbody { display: block; width: 100%; table-layout: auto; }
+    thead { display: none; }
+    tbody tr {
+      display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-areas:
+        "name  name  name"
+        "shop  warr  price"
+        "stock stock act";
+      align-items: center; column-gap: 8px; row-gap: 5px;
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    tbody tr:hover { background: transparent; }
+    tbody tr > td { display: block; padding: 0; border: none; }
+    tbody td.name { grid-area: name; }
+    tbody td.shop { grid-area: shop; max-width: none; font-size: 11.5px; }
+    tbody td:nth-child(3) { grid-area: warr; }
+    tbody td:nth-child(4) { grid-area: price; text-align: right; }
+    tbody td:nth-child(5) { grid-area: stock; font-size: 11.5px; color: var(--text-dim); }
+    tbody td.act { grid-area: act; }
+    tbody td.act .go { padding: 4px 12px; font-size: 12px; }
+
+    tbody tr.cluster-head {
+      display: block; padding: 8px 12px;
+      background: var(--panel-2);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    tbody tr.cluster-head td { display: block; }
+    .cl-meta { margin-left: 6px; font-size: 11px; }
+    .cl-spread { float: none; display: inline-block; margin-top: 4px; }
+
+    .empty { padding: 40px 16px; }
+
+    /* 详情抽屉全宽 */
+    .drawer { width: 100%; max-width: 100%; border-left: none; }
+    .drawer-head { padding: 12px 14px; padding-top: max(12px, env(safe-area-inset-top)); }
+    .drawer-body { padding: 14px; font-size: 13px; }
+    .toast { max-width: 88vw; }
+  }
 </style>
 </head>
 <body>
 
 <header>
+  <button id="btnSide" class="mobile-only" title="展开分类">☰ 分类</button>
   <div class="brand">卡网<span>比价</span></div>
   <div class="search-wrap">
     <input id="search" type="text" placeholder="搜索商品名，如 日抛 / 已接马 / 越南实卡" autocomplete="off" />
@@ -453,6 +561,7 @@
 </header>
 
 <main>
+  <div id="sideMask" class="side-mask"></div>
   <aside id="tierList"></aside>
   <section class="right">
     <div class="toolbar">
@@ -460,6 +569,14 @@
       <span id="tierSpec" class="spec"></span>
       <span id="tierMeta" class="meta"></span>
       <span class="spacer"></span>
+      <select id="mSort" class="mobile-only" title="排序">
+        <option value="price">价格从低到高</option>
+        <option value="price_desc">价格从高到低</option>
+        <option value="stock">库存多到少</option>
+        <option value="shop">按店铺</option>
+        <option value="warranty">按质保</option>
+        <option value="name">按名称</option>
+      </select>
       <label class="toggle"><input type="checkbox" id="hideZero" checked /> 隐藏缺货</label>
       <label class="toggle"><input type="checkbox" id="groupSame" /> 同款聚合</label>
       <label class="toggle"><input type="checkbox" id="showTrend" /> 价格走势</label>
@@ -728,6 +845,7 @@ function renderSidebar() {
       if (state.keyword) { state.keyword = ''; $('#search').value = ''; $('#btnClearSearch').style.display = 'none'; }
       renderSidebar();
       renderOffers();
+      closeSide();
     };
   });
 }
@@ -736,6 +854,7 @@ function renderSidebar() {
 async function renderOffers() {
   const tbody = $('#tbody');
   const empty = $('#empty');
+  syncMobileSort();
 
   // 搜索模式优先：命中跨分类显示
   if (state.keyword) { $('#trendPanel').classList.add('hidden'); return renderSearch(); }
@@ -835,6 +954,10 @@ async function renderSearch() {
   const empty = $('#empty');
   const kw = state.keyword;
 
+  // 搜索是跨档位的，档位走势与最低价推荐在这里没有意义
+  $('#trendPanel').classList.add('hidden');
+  $('#pickPanel').innerHTML = '';
+
   $('#tierTitle').textContent = '搜索结果';
   $('#tierSpec').textContent = `“${kw}”`;
   $('#noteBar').style.display = 'none';
@@ -857,6 +980,7 @@ async function renderSearch() {
   });
   else if (state.sort === 'price_desc') rows = [...list].sort((a, b) => b.price - a.price);
   else if (state.sort === 'name') rows = [...list].sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+  else if (state.sort === 'stock') rows = [...list].sort((a, b) => (b.stock || 0) - (a.stock || 0) || a.price - b.price);
   if (state.sort === 'price' && state.sortDesc) rows = [...rows].reverse();
 
   const best = rows.find((o) => (o.stock || 0) > 0 && o.price > 0)?.price ?? null;
@@ -1142,6 +1266,36 @@ $('#btnFetchAll').onclick = async () => {
 $('#shopUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btnAdd').click(); });
 $('#hideZero').checked = state.hideZero;
 $('#groupSame').checked = state.groupSame;
+
+// ---- 移动端排序下拉（桌面端表头排序的替代） ----
+function syncMobileSort() {
+  const el = $('#mSort');
+  if (!el) return;
+  const v = state.sort === 'price' && state.sortDesc ? 'price_desc' : state.sort;
+  if ([...el.options].some((o) => o.value === v)) el.value = v;
+}
+$('#mSort').onchange = (e) => {
+  const v = e.target.value;
+  if (v === 'price_desc') { state.sort = 'price'; state.sortDesc = true; }
+  else { state.sort = v; state.sortDesc = false; }
+  savePref('sort', state.sort);
+  savePref('sortDesc', state.sortDesc);
+  renderOffers();
+};
+
+// ---- 移动端分类抽屉 ----
+function openSide() {
+  $('#tierList').classList.add('show');
+  $('#sideMask').classList.add('show');
+}
+function closeSide() {
+  $('#tierList').classList.remove('show');
+  $('#sideMask').classList.remove('show');
+}
+$('#btnSide').onclick = () => {
+  if ($('#tierList').classList.contains('show')) closeSide(); else openSide();
+};
+$('#sideMask').onclick = closeSide;
 $('#hideZero').onchange = (e) => {
   state.hideZero = e.target.checked;
   savePref('hideZero', state.hideZero);
