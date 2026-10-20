@@ -971,16 +971,13 @@ function sparkline(points, w = 480, h = 46) {
 // ---------- 推荐商品 ----------
 // 规则：优先质保最好的（订阅 > 首登 > 无质保），同级比价格。
 // 只从有货报价里挑，缺货不推荐。
+/**
+ * 最便宜的有货报价。不做质保加权，价格就是唯一标准。
+ */
 function pickBest(offers) {
-  const W = { subscription: 0, first_login: 1, unknown: 2, none: 3 };
   const live = offers.filter((o) => (o.stock || 0) > 0 && o.price > 0);
   if (!live.length) return null;
-  return [...live].sort((a, b) => {
-    const wa = W[a.warranty] ?? 2;
-    const wb = W[b.warranty] ?? 2;
-    if (wa !== wb) return wa - wb;      // 先看质保等级
-    return a.price - b.price;            // 同等级看价格
-  })[0];
+  return live.reduce((m, o) => (!m || o.price < m.price ? o : m), null);
 }
 
 function renderPick(offers) {
@@ -988,18 +985,10 @@ function renderPick(offers) {
   const best = pickBest(offers);
   if (!best) { box.innerHTML = ''; return; }
 
-  // 同质保等级里的最便宜，才是真正的「性价比之选」
-  const W = { subscription: 0, first_login: 1, unknown: 2, none: 3 };
-  const sameLevel = offers.filter((o) => (o.stock || 0) > 0
-    && (W[o.warranty] ?? 2) === (W[best.warranty] ?? 2));
-  const cheapest = sameLevel.length
-    ? [...sameLevel].sort((a, b) => a.price - b.price)[0]
-    : best;
-
   const labels = state.warrantyLabels;
   const w = best.warranty || 'unknown';
   box.innerHTML = `<div class="pick-card">
-    <div class="pick-label">推荐</div>
+    <div class="pick-label">最低价</div>
     <div class="pick-name" title="${esc(best.name)}">${esc(best.name)}</div>
     <div class="pick-meta">
       <span class="wtag ${w}">${esc(labels[w] || w)}</span>
