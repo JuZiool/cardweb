@@ -228,6 +228,7 @@ async function handleApi(req, res, url) {
           minPrice: s?.minWithWarranty ?? null,
           minInStock: s?.minInStock ?? null,
           minPriceAny: s?.minPrice ?? null,
+          lastSeen: s?.lastSeen ?? null,
           band: p.band || null,
         };
       })

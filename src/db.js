@@ -295,6 +295,7 @@ export function productSummary() {
   return getDb().prepare(`
     SELECT p.product_key                      AS productKey,
            COUNT(*)                           AS offers,
+           MAX(p.last_seen)                   AS lastSeen,
            SUM(CASE WHEN p.stock > 0 THEN 1 ELSE 0 END)  AS inStock,
            COUNT(DISTINCT p.shop_id)          AS shops,
            MIN(p.price)                       AS minPrice,

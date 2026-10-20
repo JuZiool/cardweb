@@ -214,6 +214,12 @@
   .toolbar h2 { font-size: 15px; margin: 0; font-weight: 600; color: var(--text); }
   .toolbar .spec { font-size: 12px; color: var(--text-dim); }
   .toolbar .meta { font-size: 12px; color: var(--text-faint); }
+
+  .last-fetch {
+    font-size: 11px; color: var(--text-faint); white-space: nowrap;
+    padding-left: 10px; border-left: 1px solid var(--border-soft);
+    font-variant-numeric: tabular-nums;
+  }
   .spacer { flex: 1 1 auto; }
   .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); cursor: pointer; }
   .toggle input { accent-color: var(--accent); }
@@ -457,6 +463,7 @@
       <label class="toggle"><input type="checkbox" id="hideZero" checked /> 隐藏缺货</label>
       <label class="toggle"><input type="checkbox" id="groupSame" /> 同款聚合</label>
       <label class="toggle"><input type="checkbox" id="showTrend" /> 价格走势</label>
+      <span id="lastFetch" class="last-fetch" title="最近一次成功抓取的时间"></span>
     </div>
     <div id="noteBar" class="note-bar" style="display:none"></div>
     <div id="trendPanel" class="trend-panel hidden">
@@ -589,6 +596,28 @@ async function loadShops() {
   renderShops(); renderStatus();
 }
 
+
+// ---------- 最新抓取时间 ----------
+function renderLastFetch() {
+  const el = $('#lastFetch');
+  if (!el) return;
+  // last_seen 是商品最近一次被成功抓取的时间戳（毫秒）
+  const ts = state.products.reduce((m, p) => Math.max(m, p.lastSeen || 0), 0);
+  if (!ts) { el.textContent = ''; return; }
+  const d = new Date(ts);
+  const now = Date.now();
+  const diffMin = Math.floor((now - ts) / 60000);
+  let rel;
+  if (diffMin < 1) rel = '刚刚';
+  else if (diffMin < 60) rel = `${diffMin} 分钟前`;
+  else if (diffMin < 1440) rel = `${Math.floor(diffMin / 60)} 小时前`;
+  else rel = `${Math.floor(diffMin / 1440)} 天前`;
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  el.textContent = `更新于 ${rel} · ${hh}:${mm}`;
+  el.title = `最近抓取：${d.toLocaleString('zh-CN')}`;
+}
+
 // ---------- 标准商品列表 ----------
 async function loadProducts() {
   const { platform, groups, products } = await api('/api/products');
@@ -603,6 +632,7 @@ async function loadProducts() {
     state.activeKey = products[0]?.key || null;
     savePref('activeKey', state.activeKey);
   }
+  renderLastFetch();
   renderSidebar();
   renderOffers();
 }
