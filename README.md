@@ -46,6 +46,24 @@ node server.js
 
 首次启动自动创建 `data/cardweb.db`。打开后在顶部粘贴店铺链接（如 `https://wzyp.cn/shop/GUEOI7Z9`）添加，会自动开始抓取。
 
+### Windows 常驻运行
+
+在终端里 `node server.js` 起的进程会挂在那个终端下面，**关掉终端或重启 IDE，服务就一起没了**。要长期跑用脚本启动：
+
+```bat
+start.bat   :: 以独立进程启动，关闭任何窗口都不影响；日志写 data\server.log
+stop.bat    :: 停止占用 8052 的进程
+```
+
+`start.bat` 用 `start /min cmd /c` 把进程从当前终端树里摘出去，启动后父进程退出、它变成孤儿进程继续跑。已注册计划任务 `cardweb-autostart`（登录时自动执行 `start.bat`），改端口或路径后记得同步更新该任务。
+
+查自启任务：
+
+```bat
+schtasks /Query /TN cardweb-autostart
+schtasks /Delete /TN cardweb-autostart /F   :: 取消自启
+```
+
 ## 部署
 
 ### Docker（服务器）
