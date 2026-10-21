@@ -1,6 +1,10 @@
 FROM node:24-alpine AS base
 WORKDIR /app
 
+# curl 是备用抓取通道：目标站 WAF 按 TLS 指纹拦截 Node 的 OpenSSL 连接时，
+# 换到 curl 的 TLS 栈就能继续抓（详见 src/fetcher.js 顶部注释）
+RUN apk add --no-cache curl
+
 # 纯 Node 内置模块，无 npm 依赖，不需要 install 步骤
 COPY package.json ./
 COPY server.js ./

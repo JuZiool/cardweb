@@ -105,9 +105,16 @@ export function insertShop({ token, url, nickname, sellCount, goodsCount }) {
   return Number(info.lastInsertRowid);
 }
 
+/** 只更新这轮真拿到了的字段：/info 被限流时 nickname 会是 null，不能把已有店名冲掉 */
 export function updateShopMeta(id, { nickname, sellCount, goodsCount }) {
-  getDb().prepare('UPDATE shops SET nickname = ?, sell_count = ?, goods_count = ? WHERE id = ?')
-    .run(nickname, sellCount || 0, goodsCount || 0, id);
+  const sets = [];
+  const vals = [];
+  if (nickname != null) { sets.push('nickname = ?'); vals.push(nickname); }
+  if (sellCount != null) { sets.push('sell_count = ?'); vals.push(sellCount); }
+  if (goodsCount != null) { sets.push('goods_count = ?'); vals.push(goodsCount); }
+  if (!sets.length) return;
+  vals.push(id);
+  getDb().prepare(`UPDATE shops SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
 }
 
 export function setShopStatus(id, status, error = null) {

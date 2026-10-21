@@ -1,8 +1,34 @@
+import vm from 'node:vm';
+import os from 'node:os';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { classify } from './classify.js';
 import { classifyProduct, detectConflict } from './products.js';
 
 const BASE = 'https://wzyp.cn';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+/**
+ * 请求间隔与重试。
+ *
+ * 2026-10-21 实测：链动小铺前面是阿里云 ESA，同一 IP 同一时刻，
+ * 浏览器 / curl(Schannel) 返回 200，而 Node 的 OpenSSL 连接一律 403
+ * （X-Tengine-Error: denied by http_ratelimit / http_custom），
+ * 即使请求头逐字节相同也一样 —— 说明拦截点在看 TLS 指纹而非 IP。
+ * 所以这里保留 curl 作为备用传输层，被拦时自动切换。
+ */
+const MIN_GAP_MS = Number(process.env.FETCH_MIN_GAP_MS) || 300;
+const MAX_ATTEMPTS = 3;
+const execFileAsync = promisify(execFile);
+
+let lastRequestAt = 0;
+/** 会话 cookie（acw_tc / cdn_sec_tc / PHPSESSID / acw_sc__v2），两种传输层共用 */
+const jar = new Map();
+/** 'fetch' = Node 原生；'curl' = 子进程。一旦原生被拦就粘住 curl */
+let preferredTransport = 'fetch';
+let curlMissing = false;
 
 export class FetchError extends Error {
   constructor(message, { cause } = {}) {
@@ -10,6 +36,202 @@ export class FetchError extends Error {
     this.name = 'FetchError';
     this.cause = cause;
   }
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** 全局节流：所有请求共用一个最小间隔，避免一轮全量抓取把 WAF 打起来 */
+async function throttle() {
+  const wait = lastRequestAt + MIN_GAP_MS - Date.now();
+  if (wait > 0) await sleep(wait);
+  lastRequestAt = Date.now();
+}
+
+function cookieHeader() {
+  return [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+}
+
+function absorbSetCookie(values) {
+  for (const raw of values || []) {
+    const first = String(raw).split(';')[0];
+    const eq = first.indexOf('=');
+    if (eq > 0) jar.set(first.slice(0, eq).trim(), first.slice(eq + 1).trim());
+  }
+}
+
+function requestHeaders(token) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'User-Agent': UA,
+    Origin: BASE,
+    Referer: token ? `${BASE}/shop/${token}` : BASE,
+    Accept: 'application/json, text/plain, */*',
+    'Accept-Language': 'zh-CN,zh;q=0.9',
+  };
+  const cookie = cookieHeader();
+  if (cookie) headers.Cookie = cookie;
+  return headers;
+}
+
+/** 原生 fetch 传输 */
+async function viaFetch(url, payload, headers, timeout) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeout);
+  try {
+    const res = await fetch(url, { method: 'POST', headers, body: payload, signal: ctrl.signal });
+    absorbSetCookie(res.headers.getSetCookie?.());
+    return { status: res.status, text: await res.text() };
+  } catch (err) {
+    if (err.name === 'AbortError') throw new FetchError('请求超时');
+    throw new FetchError(`网络错误：${err.message}`, { cause: err });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** curl 传输：Head/body 走临时文件，避免和 -w 混在一起 */
+async function viaCurl(url, payload, headers, timeout) {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'cardweb-'));
+  const headFile = path.join(tmp, 'h');
+  const bodyFile = path.join(tmp, 'b');
+  try {
+    const args = [
+      '-sS', '--compressed', '--max-time', String(Math.ceil(timeout / 1000)),
+      '-D', headFile, '-o', bodyFile,
+      '-X', 'POST', '-w', '%{http_code}', url,
+    ];
+    for (const [k, v] of Object.entries(headers)) args.push('-H', `${k}: ${v}`);
+    args.push('--data-binary', payload);
+
+    let status;
+    try {
+      const { stdout } = await execFileAsync('curl', args, {
+        timeout: timeout + 5000,
+        maxBuffer: 1024 * 1024,
+        windowsHide: true,
+      });
+      status = Number(stdout.trim()) || 0;
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        curlMissing = true;
+        throw err;
+      }
+      throw new FetchError(`curl 请求失败：${err.message}`, { cause: err });
+    }
+
+    const rawHead = await fs.readFile(headFile, 'utf8').catch(() => '');
+    absorbSetCookie(rawHead.split(/\r?\n/).filter((l) => /^set-cookie:/i.test(l)).map((l) => l.slice(l.indexOf(':') + 1)));
+    const text = await fs.readFile(bodyFile, 'utf8').catch(() => '');
+    return { status, text };
+  } finally {
+    fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function transport(path, body, opts) {
+  const url = BASE + path;
+  const payload = JSON.stringify(body);
+  const headers = requestHeaders(opts.token);
+  if (preferredTransport === 'curl' && !curlMissing) {
+    try {
+      return await viaCurl(url, payload, headers, opts.timeout);
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        preferredTransport = 'fetch';
+      } else {
+        throw err;
+      }
+    }
+  }
+  return viaFetch(url, payload, headers, opts.timeout);
+}
+
+/**
+ * 求解阿里云 ESA 下发的 acw_sc__v2 挑战。
+ * 挑战脚本是一段自解密的混淆 JS，标准做法是在沙箱里直接跑一遍，
+ * 它会把 document.cookie 设成 acw_sc__v2=...，再拿这个 cookie 重放请求。
+ */
+function solveChallenge(html) {
+  const m = String(html).match(/<script>([\s\S]*?)<\/script>/);
+  if (!m) return null;
+  let cookie = '';
+  const ctx = {
+    document: {
+      get cookie() { return cookie; },
+      set cookie(v) { cookie = String(v); },
+      location: { reload() {} },
+      createElement() { return { style: {}, setAttribute() {}, getElementsByTagName() { return []; } }; },
+    },
+    location: { reload() {} },
+    window: {},
+    navigator: { userAgent: UA },
+    setTimeout, clearTimeout, console,
+    Date, Math, parseInt, parseFloat, RegExp, String, Array, Object, JSON, Error, isNaN,
+    encodeURIComponent, decodeURIComponent, escape, unescape,
+  };
+  ctx.self = ctx;
+  ctx.top = ctx;
+  ctx.globalThis = ctx;
+  vm.createContext(ctx);
+  try {
+    vm.runInContext(m[1], ctx, { timeout: 10_000 });
+  } catch {
+    return null;
+  }
+  const hit = cookie.match(/acw_sc__v2=([^;]+)/);
+  return hit ? hit[1] : null;
+}
+
+/** 判断响应是不是被 WAF 挡了：JS 挑战页 or 403 拦截页 */
+function blockedKind(text) {
+  if (String(text).includes('acw_sc__v2')) return 'challenge';
+  if (String(text).trimStart().startsWith('<!DOCTYPE html>') || String(text).includes('403 禁止访问')) {
+    return 'denied';
+  }
+  return null;
+}
+
+async function post(path, body, { timeout = 20000, token, attempts = MAX_ATTEMPTS } = {}) {
+  let lastErr;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    await throttle();
+    try {
+      const res = await transport(path, body, { timeout, token });
+      const blocked = blockedKind(res.text);
+
+      if (blocked === 'challenge') {
+        const solved = solveChallenge(res.text);
+        if (solved) {
+          jar.set('acw_sc__v2', solved);
+          lastErr = new FetchError('触发了人机校验，已自动通过，正在重试');
+          continue;
+        }
+        throw new FetchError('被目标站人机校验拦截，且自动通过失败');
+      }
+
+      if (blocked === 'denied' || !res.status || res.status >= 400) {
+        // 典型的指纹/限流拦截：先换传输层，再不行就退避
+        if (preferredTransport === 'fetch' && !curlMissing) {
+          preferredTransport = 'curl';
+          lastErr = new FetchError('请求被目标站拦截，已切换到备用通道重试');
+          continue;
+        }
+        lastErr = new FetchError(res.status ? `接口返回 HTTP ${res.status}` : '请求未拿到响应');
+        if (attempt < attempts) await sleep(1000 * attempt);
+        continue;
+      }
+
+      const json = JSON.parse(res.text);
+      if (json.code !== 1) throw new FetchError(json.msg || '接口返回异常');
+      return json.data;
+    } catch (err) {
+      if (err instanceof FetchError) lastErr = err;
+      else lastErr = new FetchError(`网络错误：${err.message}`, { cause: err });
+      if (attempt >= attempts) break;
+      await sleep(800 * attempt);
+    }
+  }
+  throw lastErr || new FetchError('请求失败');
 }
 
 /** 从各种形态的链接里解析店铺 token：/shop/XXXX、裸 token */
@@ -22,37 +244,11 @@ export function parseToken(input) {
   throw new FetchError('无法识别的店铺链接，请粘贴形如 https://wzyp.cn/shop/XXXXXXXX 的地址');
 }
 
-async function post(path, body, { timeout = 20000, token } = {}) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeout);
-  try {
-    const res = await fetch(BASE + path, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': UA,
-        Origin: BASE,
-        Referer: token ? `${BASE}/shop/${token}` : BASE,
-        Accept: 'application/json, text/plain, */*',
-      },
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-    });
-    if (!res.ok) throw new FetchError(`接口返回 HTTP ${res.status}`);
-    const json = await res.json();
-    if (json.code !== 1) throw new FetchError(json.msg || '接口返回异常');
-    return json.data;
-  } catch (err) {
-    if (err.name === 'AbortError') throw new FetchError('请求超时');
-    if (err instanceof FetchError) throw err;
-    throw new FetchError(`网络错误：${err.message}`, { cause: err });
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 export async function fetchShopInfo(token) {
-  const data = await post('/shopApi/Shop/info', { token, category_key: null }, { token });
+  // /info 在平台上是最容易被单独限流的接口，且只是锦上添花（店名/销量），
+  // 所以只试一次、不拖时间 —— 失败由 fetchShop 兜底成 infoError。
+  const data = await post('/shopApi/Shop/info', { token, category_key: null }, { token, attempts: 1 });
   return {
     token,
     nickname: data.nickname || token,
@@ -177,6 +373,21 @@ export async function fetchGoods(token, { pageSize = 500 } = {}) {
 }
 
 export async function fetchShop(token) {
-  const [info, goods] = await Promise.all([fetchShopInfo(token), fetchGoods(token)]);
+  // /info 是单独的限流对象：平台上它比 /goodsList 更容易被 403，
+  // 而店铺昵称、销量对价格分析并非必需，所以它失败不拖垮整店抓取。
+  const [info, goods] = await Promise.all([
+    fetchShopInfo(token).catch((err) => ({
+      token,
+      nickname: null,
+      url: `${BASE}/shop/${token}`,
+      sellCount: null,
+      description: '',
+      goodsCount: null,
+      cardCount: null,
+      equityCount: null,
+      infoError: err.message,
+    })),
+    fetchGoods(token),
+  ]);
   return { info, goods };
 }

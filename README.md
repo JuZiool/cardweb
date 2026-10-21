@@ -75,6 +75,7 @@ wslc run -d --name cardweb -p 8052:8052 -v D:\cardweb\data:/app/data cardweb:lat
 | `HOST` | `0.0.0.0` | 监听地址 |
 | `DB_FILE` | `./data/cardweb.db` | SQLite 路径 |
 | `POLL_MINUTES` | `0` | 自动抓取间隔（分钟）。`0` = 关闭，只手动抓 |
+| `FETCH_MIN_GAP_MS` | `300` | 相邻请求的最小间隔（毫秒）。被限流时可调大到 `800`~`1500` |
 
 想积累价格走势数据，建议设成 `60`（每小时一轮）。
 
@@ -237,6 +238,22 @@ POST https://wzyp.cn/shopApi/Shop/goodsList   { token, current, pageSize }
 ```
 
 `token` 是店铺链接 `/shop/XXXXXXXX` 的最后一段，`pageSize` 实测可传 500 一次拉完。
+**`goods_type: "card"` 现在是必传的** —— 少这个字段接口照样返回 `code:1`，但 `total` 恒为 0，看起来像「店铺下架了」其实是参数问题。
+
+### 反爬与限流（2026-10-21 实测）
+
+平台前面是阿里云 ESA，会按 **TLS 指纹**和 **IP 频次**两套规则拦请求。排查时最容易误判成「IP 被封」，实际分层如下：
+
+| 现象 | 真实原因 | 处理 |
+| --- | --- | --- |
+| `403` + `X-Tengine-Error: denied by http_ratelimit` | 频次限流（可能是 IP 级，可能是指纹级） | 降速 + 重试；退避几十秒到几分钟会自动恢复 |
+| 响应是 `<script>var arg1=...` 的页面 | `acw_sc__v2` JS 挑战 | 在 `node:vm` 沙箱里执行这段脚本，取到 cookie 后重放 |
+| Node 一直 403，同一时刻 curl / 浏览器 200 | OpenSSL 指纹被单独限流 | 自动切到 curl 传输（Windows 上是 Schannel，指纹不同） |
+| 只有 `/info` 403，`/goodsList` 正常 | `/info` 是单独限流对象 | 已降级：`/info` 只试一次，失败不影响商品抓取 |
+
+同一时刻同一 IP 下 **浏览器 200 / curl 200 / Node fetch 403**、且请求头逐字节对齐后仍 403，是判定「不是 IP 封禁、是指纹识别」的关键对照实验。等 5 分钟仍 403 但 `/goodsList` 正常，说明限的是单个接口而不是整站。
+
+`fetcher.js` 里的对策是三层：全局最小间隔节流（`FETCH_MIN_GAP_MS`，默认 300ms）、JS 挑战自动求解、原生 fetch 被拦时粘性切换到 curl 备用通道。
 
 **16688.com.cn 是另一套接口**（`/shopApi/shop/detail` + `{ shop_no }`），结构类似但参数名不同，尚未适配。
 
@@ -248,6 +265,8 @@ POST https://wzyp.cn/shopApi/Shop/goodsList   { token, current, pageSize }
 - **同款聚类依赖属性词**，标题里不写渠道/邮箱的商品会落到「通用规格」大组，聚类偏粗
 - **价格走势数据量**取决于抓取频次，目前只有手动抓取或开 `POLL_MINUTES` 才有数据
 - **前端单文件无构建**，约 1200 行，组件化程度低
+- **抓取会触发平台限流**：一轮 24 店全量约 1900 个请求，连续触发几次就会进几分钟的 403 窗口。这是频次保护而非封号，等窗口过去即可；嫌麻烦就把 `FETCH_MIN_GAP_MS` 调大
+- **Docker 里的 curl 走 OpenSSL**（Alpine + musl），指纹与宿主 Windows 的 Schannel 不同，备用通道未必能绕开限流。若容器内持续 403，优先考虑在宿主机跑或换用支持自定义 TLS 指纹的出口
 
 ## 开发提示
 
