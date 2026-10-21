@@ -222,24 +222,52 @@
       "note": ""
     },
     {
-      "key": "team-seat",
+      "key": "team-1x",
       "group": "team",
       "order": 40,
-      "name": "Team 车位（月权益）",
-      "spec": "车位 · 可与 Plus 并存 · 质保订阅",
-      "note": "补额度用，不是独立账号",
+      "name": "Team 1x（标准席位）",
+      "spec": "额度与 Plus 相当 · 无 5 小时限额 · 质保 25~30 天",
+      "note": "独立 Team 席位号，已接马直接登录；不掉车，是 Team 里最稳也最贵的一档",
       "band": {
-        "min": 60,
-        "max": 400
+        "min": 50,
+        "max": 200
       }
     },
     {
-      "key": "team-account",
+      "key": "team-5x",
       "group": "team",
       "order": 41,
-      "name": "Team 账号 / 席位",
-      "spec": "1x / 5x Team · 5 小时额度限制 · 车主定时踢人",
-      "note": "拼车性质，随时可能被踢；商品名里常写「几点踢」"
+      "name": "Team 5x（普通车）",
+      "spec": "5x 额度 · 车主定时踢人 · 质保首登 0.5~2 小时",
+      "note": "拼车性质，标题常写「几点踢」；额度用尽或到点即被踢出",
+      "band": {
+        "min": 20,
+        "max": 250
+      }
+    },
+    {
+      "key": "team-rotate",
+      "group": "team",
+      "order": 42,
+      "name": "Team 轮转车",
+      "spec": "轮转 / 换车 · 到点踢空间 · 质保 0.5~1 小时",
+      "note": "按轮次换号，单价最低但寿命最短；标题里的「首车/二车/过夜/轮转」都是这一档",
+      "band": {
+        "min": 15,
+        "max": 200
+      }
+    },
+    {
+      "key": "team-long",
+      "group": "team",
+      "order": 43,
+      "name": "Team 长效车",
+      "spec": "长效 / 不踢人 / 用到空间死 · 质保 1~4 小时",
+      "note": "标题写「长效 / 不踢 / 非轮转」，相对耐用；注意「长效」不等于长期质保",
+      "band": {
+        "min": 20,
+        "max": 300
+      }
     },
     {
       "key": "codex-sms-once",
@@ -339,12 +367,119 @@
   },
   "rules": [
     {
-      "product": "team-seat",
+      "product": "team-long",
       "aliases": [
-        "车位",
-        "月权益"
+        "长效",
+        "不踢",
+        "非轮转",
+        "非转轮",
+        "非轮",
+        "用到空间死",
+        "空间死",
+        "空间爆炸",
+        "用到空间爆炸",
+        "用到号死",
+        "不t",
+        "母号死",
+        "用到母号死"
+      ],
+      "requireAny": [
+        "team"
       ],
       "excludeAny": [
+        "free",
+        "车子号",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ]
+    },
+    {
+      "product": "team-1x",
+      "aliases": [
+        "标准席位",
+        "普通席位",
+        "team席位",
+        "标准账号",
+        "标准周限",
+        "无5h限额",
+        "1x",
+        "平替plus",
+        "额度跟plus一样",
+        "额度和plus一样",
+        "车位",
+        "月权益",
+        "周限号无5h",
+        "周限额跟plus"
+      ],
+      "requireAny": [
+        "team"
+      ],
+      "excludeAny": [
+        "free",
+        "车子号",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ]
+    },
+    {
+      "product": "team-rotate",
+      "aliases": [
+        "轮转",
+        "轮换",
+        "首轮",
+        "第一轮",
+        "第二轮",
+        "多轮",
+        "三四轮",
+        "首车",
+        "头车",
+        "末班车",
+        "二车",
+        "三车",
+        "第4车",
+        "四车",
+        "新车",
+        "发车",
+        "过夜",
+        "速刷",
+        "踢"
+      ],
+      "requireAny": [
+        "team"
+      ],
+      "excludeAny": [
+        "free",
+        "车子号",
+        "grok",
+        "gro普号",
+        "gro 普号",
+        "supergro",
+        "super gro",
+        "gro4.6",
+        "grok premium"
+      ]
+    },
+    {
+      "product": "team-5x",
+      "aliases": [
+        "5x"
+      ],
+      "requireAny": [
+        "team"
+      ],
+      "excludeAny": [
+        "free",
+        "车子号",
         "grok",
         "gro普号",
         "gro 普号",
@@ -469,24 +604,6 @@
         "吉皮提",
         "g.pt",
         "g+p"
-      ]
-    },
-    {
-      "product": "team-account",
-      "aliases": [
-        "team"
-      ],
-      "excludeAny": [
-        "free",
-        "账密2fa-1号",
-        "5xteam车",
-        "grok",
-        "gro普号",
-        "gro 普号",
-        "supergro",
-        "super gro",
-        "gro4.6",
-        "grok premium"
       ]
     },
     {
