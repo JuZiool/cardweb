@@ -19,8 +19,10 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
  * 即使请求头逐字节相同也一样 —— 说明拦截点在看 TLS 指纹而非 IP。
  * 所以这里保留 curl 作为备用传输层，被拦时自动切换。
  */
-const MIN_GAP_MS = Number(process.env.FETCH_MIN_GAP_MS) || 300;
-const MAX_ATTEMPTS = 3;
+const MIN_GAP_MS = Number(process.env.FETCH_MIN_GAP_MS) || 1500;
+const JITTER_MS = Number(process.env.FETCH_JITTER_MS) || 500;
+const MAX_ATTEMPTS = 4;
+const RATE_LIMIT_BACKOFF_MS = [30_000, 60_000, 120_000];
 const execFileAsync = promisify(execFile);
 
 let lastRequestAt = 0;
@@ -42,7 +44,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** 全局节流：所有请求共用一个最小间隔，避免一轮全量抓取把 WAF 打起来 */
 async function throttle() {
-  const wait = lastRequestAt + MIN_GAP_MS - Date.now();
+  const jitter = JITTER_MS > 0 ? Math.floor(Math.random() * (JITTER_MS + 1)) : 0;
+  const wait = lastRequestAt + MIN_GAP_MS + jitter - Date.now();
   if (wait > 0) await sleep(wait);
   lastRequestAt = Date.now();
 }
@@ -193,6 +196,7 @@ function blockedKind(text) {
 
 async function post(path, body, { timeout = 20000, token, attempts = MAX_ATTEMPTS } = {}) {
   let lastErr;
+  let rateLimitRetries = 0;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     await throttle();
     try {
@@ -209,13 +213,25 @@ async function post(path, body, { timeout = 20000, token, attempts = MAX_ATTEMPT
         throw new FetchError('被目标站人机校验拦截，且自动通过失败');
       }
 
-      if (blocked === 'denied' || !res.status || res.status >= 400) {
-        // 典型的指纹/限流拦截：先换传输层，再不行就退避
+      const rateLimited = blocked === 'denied' || res.status === 403 || res.status === 429;
+      if (rateLimited) {
+        // 先排除 TLS 指纹拦截；切换传输层不占用限流重试次数。
         if (preferredTransport === 'fetch' && !curlMissing) {
           preferredTransport = 'curl';
           lastErr = new FetchError('请求被目标站拦截，已切换到备用通道重试');
+          attempt -= 1;
           continue;
         }
+        lastErr = new FetchError(`接口返回 HTTP ${res.status || 403}，触发目标站限流`);
+        if (attempt < attempts) {
+          const delay = RATE_LIMIT_BACKOFF_MS[Math.min(rateLimitRetries, RATE_LIMIT_BACKOFF_MS.length - 1)];
+          rateLimitRetries += 1;
+          await sleep(delay);
+        }
+        continue;
+      }
+
+      if (!res.status || res.status >= 400) {
         lastErr = new FetchError(res.status ? `接口返回 HTTP ${res.status}` : '请求未拿到响应');
         if (attempt < attempts) await sleep(1000 * attempt);
         continue;
@@ -373,21 +389,17 @@ export async function fetchGoods(token, { pageSize = 500 } = {}) {
 }
 
 export async function fetchShop(token) {
-  // /info 是单独的限流对象：平台上它比 /goodsList 更容易被 403，
-  // 而店铺昵称、销量对价格分析并非必需，所以它失败不拖垮整店抓取。
-  const [info, goods] = await Promise.all([
-    fetchShopInfo(token).catch((err) => ({
-      token,
-      nickname: null,
-      url: `${BASE}/shop/${token}`,
-      sellCount: null,
-      description: '',
-      goodsCount: null,
-      cardCount: null,
-      equityCount: null,
-      infoError: err.message,
-    })),
-    fetchGoods(token),
-  ]);
+  // /info 仅在新增店铺时请求；全量刷新只抓价格所需的商品列表。
+  const goods = await fetchGoods(token);
+  const info = {
+    token,
+    nickname: null,
+    url: `${BASE}/shop/${token}`,
+    sellCount: null,
+    description: '',
+    goodsCount: null,
+    cardCount: null,
+    equityCount: null,
+  };
   return { info, goods };
 }

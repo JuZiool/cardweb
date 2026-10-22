@@ -5,6 +5,8 @@ cd /d "%~dp0"
 
 set PORT=8052
 set POLL_MINUTES=0
+set FETCH_MIN_GAP_MS=1500
+set FETCH_JITTER_MS=500
 
 echo Starting cardweb on http://127.0.0.1:%PORT%
 start "cardweb" /min cmd /c "node server.js > data\server.log 2>&1"
