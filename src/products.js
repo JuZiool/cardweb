@@ -96,6 +96,12 @@ function isOtherPlatform(nameLower) {
   return !OPENAI_SUBJECT.some((s) => nameLower.includes(s));
 }
 
+function isGuideListing(name, categoryRaw) {
+  if ((categoryRaw || '').includes('教程')) return true;
+  return /^(?:【教程】|小白.*教程|免费教程|反代教程|使用.*教程)/i.test(name)
+    || /保姆级.*教程.*指南/i.test(name);
+}
+
 /**
  * 返回 { productKey, warranty }。
  * 按 rules 顺序，首个命中即返回；不属于 OpenAI 平台返回 null。
@@ -104,6 +110,7 @@ export function classifyProduct(item) {
   const name = item.name || '';
   const nameLower = name.toLowerCase();
 
+  if (isGuideListing(name, item.categoryRaw)) return null;
   if (isOtherPlatform(nameLower)) return null;
 
   for (const rule of cfg.rules) {

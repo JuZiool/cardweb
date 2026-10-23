@@ -358,7 +358,7 @@ export async function fetchGoods(token, { pageSize = 500 } = {}) {
   return out
     .map((g) => {
       const ext = g.extend || {};
-      const hit = classifyProduct({ name: g.name });
+      const hit = classifyProduct({ name: g.name, categoryRaw: g.category?.name || '' });
       const descHtml = g.description || '';
       const descText = htmlToText(descHtml);
       const conflict = detectConflict(g.name, descText);

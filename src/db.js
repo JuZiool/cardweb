@@ -367,13 +367,13 @@ export function searchProducts(keyword, { inStockOnly = true, limit = 300 } = {}
 /** 用最新匹配规则重新归类所有已存商品（不重新抓取） */
 export function reclassifyAll(classifyFn, conflictFn = null) {
   const d = getDb();
-  const rows = d.prepare('SELECT id, name, desc_text FROM products').all();
+  const rows = d.prepare('SELECT id, name, category_raw, desc_text FROM products').all();
   const upd = d.prepare('UPDATE products SET product_key = ?, warranty = ?, conflict = ? WHERE id = ?');
   let changed = 0;
   d.exec('BEGIN');
   try {
     for (const r of rows) {
-      const hit = classifyFn({ name: r.name });
+      const hit = classifyFn({ name: r.name, categoryRaw: r.category_raw });
       let conflict = null;
       if (conflictFn) {
         const c = conflictFn(r.name, r.desc_text || '');
