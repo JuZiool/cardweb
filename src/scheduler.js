@@ -8,12 +8,13 @@ import { syncShopGoods, setShopStatus, updateShopMeta, listShops } from './db.js
  * - 任何时刻只有一个抓取任务在跑，绝不并发打目标站
  * - 店铺之间不插入人工等待，抓完一家立刻抓下一家
  * - 新增店铺只抓该店；「全量抓取」抓所有店铺，两者共用串行队列
- * - 定时轮询默认只跑一轮，用 intervalMinutes 控制（0 表示不自动跑）
+ * - 每轮全量抓取结束后重新计时，用 intervalMinutes 控制间隔（0 表示不自动跑）
  */
 export class Scheduler {
   constructor({ intervalMinutes = 0, autoStart = false } = {}) {
     this.intervalMinutes = intervalMinutes;
     this.timer = null;
+    this.pollingEnabled = false;
     this.running = false;
     this.current = null;      // { shopId, token, nickname }
     this.pending = null;      // 排队中的 promise
@@ -53,6 +54,7 @@ export class Scheduler {
     const task = (this.pending || Promise.resolve()).then(run, run).finally(() => {
       this.jobs.delete(key);
       if (this.pending === task) this.pending = null;
+      if (key === 'all' && this.pollingEnabled) this.startPolling();
     });
     this.jobs.set(key, task);
     this.pending = task;
@@ -60,6 +62,9 @@ export class Scheduler {
   }
 
   triggerAll(reason = 'manual') {
+    clearTimeout(this.timer);
+    this.timer = null;
+    this.nextRunAt = null;
     return this.enqueue('all', () => this.runRound(reason));
   }
 
@@ -119,20 +124,18 @@ export class Scheduler {
   }
 
   startPolling() {
-    if (this.timer) return;
     const ms = this.intervalMinutes * 60_000;
-    if (!ms) return;
-    const tick = () => {
-      this.nextRunAt = Date.now() + ms;
-      this.triggerAll('poll');
-    };
+    if (ms <= 0) return;
+    this.pollingEnabled = true;
+    if (this.timer || this.jobs.has('all')) return;
     this.nextRunAt = Date.now() + ms;
-    this.timer = setInterval(tick, ms);
+    this.timer = setTimeout(() => this.triggerAll('poll'), ms);
     if (this.timer.unref) this.timer.unref();
   }
 
   stopPolling() {
-    if (this.timer) clearInterval(this.timer);
+    this.pollingEnabled = false;
+    if (this.timer) clearTimeout(this.timer);
     this.timer = null;
     this.nextRunAt = null;
   }
