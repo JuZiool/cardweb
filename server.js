@@ -222,8 +222,8 @@ async function handleApi(req, res, url) {
   if (shopFetchMatch && method === 'POST') {
     const shop = listShops().find((s) => s.id === Number(shopFetchMatch[1]));
     if (!shop) return json(res, 404, { error: '店铺不存在' });
-    scheduler.triggerAll('manual');
-    return json(res, 202, { ok: true, mode: 'full-round', scheduler: scheduler.status() });
+    scheduler.triggerShop(shop.id);
+    return json(res, 202, { ok: true, mode: 'single-shop', scheduler: scheduler.status() });
   }
 
   if (pathname === '/api/fetch-all' && method === 'POST') {

@@ -7,7 +7,7 @@ import { syncShopGoods, setShopStatus, updateShopMeta, listShops } from './db.js
  * 设计要点（按使用者要求）：
  * - 任何时刻只有一个抓取任务在跑，绝不并发打目标站
  * - 店铺之间不插入人工等待，抓完一家立刻抓下一家
- * - 「立即抓取」= 触发一整轮全量抓取（所有店铺）
+ * - 新增店铺只抓该店；「全量抓取」抓所有店铺，两者共用串行队列
  * - 定时轮询默认只跑一轮，用 intervalMinutes 控制（0 表示不自动跑）
  */
 export class Scheduler {
@@ -17,6 +17,7 @@ export class Scheduler {
     this.running = false;
     this.current = null;      // { shopId, token, nickname }
     this.pending = null;      // 排队中的 promise
+    this.jobs = new Map();    // 同一店铺或全量任务不重复排队
     this.round = null;        // { startedAt, total, done, failed }
     this.listeners = new Set();
     this.abort = false;
@@ -46,15 +47,28 @@ export class Scheduler {
     };
   }
 
-  /** 触发一整轮全量抓取。若已有任务在跑，返回已有的 promise（不重复排队）。 */
-  triggerAll(reason = 'manual') {
-    if (this.pending) return this.pending;
-    this.pending = this.runRound(reason).finally(() => { this.pending = null; });
-    return this.pending;
+  /** 单店和全量任务共用队列，避免新增店铺时并发抓取或漏掉任务。 */
+  enqueue(key, run) {
+    if (this.jobs.has(key)) return this.jobs.get(key);
+    const task = (this.pending || Promise.resolve()).then(run, run).finally(() => {
+      this.jobs.delete(key);
+      if (this.pending === task) this.pending = null;
+    });
+    this.jobs.set(key, task);
+    this.pending = task;
+    return task;
   }
 
-  async runRound(reason) {
-    const shops = listShops().filter((s) => s.enabled);
+  triggerAll(reason = 'manual') {
+    return this.enqueue('all', () => this.runRound(reason));
+  }
+
+  triggerShop(shopId) {
+    return this.enqueue(shopId, () => this.runRound('single-shop',
+      listShops().filter((s) => s.id === shopId)));
+  }
+
+  async runRound(reason, shops = listShops().filter((s) => s.enabled)) {
     this.round = { startedAt: Date.now(), total: shops.length, done: 0, failed: 0, reason };
     this.emit('round:start', { total: shops.length, reason });
 

@@ -575,7 +575,7 @@
   </div>
   <input id="shopUrl" type="text" placeholder="粘贴店铺链接" />
   <button id="btnAdd" class="primary">添加店铺</button>
-  <button id="btnFetchAll">立即抓取</button>
+  <button id="btnFetchAll">全量抓取</button>
   <span id="statusPill" class="status-pill"><i class="dot"></i><span>空闲</span></span>
 </header>
 
@@ -1438,8 +1438,8 @@ $('#btnAdd').onclick = async () => {
     const { shop } = await api('/api/shops', { method: 'POST', body: JSON.stringify({ url }) });
     $('#shopUrl').value = '';
     await loadShops();
-    toast(`已添加 ${shop.nickname}，开始抓取…`);
-    await api('/api/fetch-all', { method: 'POST' });
+    await api(`/api/shops/${shop.id}/fetch`, { method: 'POST' });
+    toast(`已添加 ${shop.nickname}，已安排抓取该店商品`);
   } catch (err) {
     toast(err.message, true);
   } finally {
