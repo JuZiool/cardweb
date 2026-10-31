@@ -1,13 +1,14 @@
 # 卡网比价
 
-聚合多家发卡店铺（wzyp.cn / 鲸商城）的商品报价，把各店叫法不同的商品归到统一的标准商品下，一眼看出同一款货在哪家买最便宜、有没有质保。
+聚合多家发卡店铺（wzyp.cn / 鲸商城）的商品报价，按 OpenAI、Claude 分平台展示，把各店叫法不同的商品归到统一的标准商品下，一眼看出同一款货在哪家买最便宜、有没有质保。
 
 ![OpenAI 平台分组](https://img.shields.io/badge/platform-OpenAI-a9762f) ![零依赖](https://img.shields.io/badge/deps-none-4d8a5b) ![Node](https://img.shields.io/badge/node-24%2B-339933)
 
 ## 功能
 
 **比价核心**
-- **标准商品 + 别名**：把「G Plus 未接马 质保首登」「印度-PLUS-outlook邮箱-保首登」这类不同叫法归到同一个标准商品下（25 个可见标准品，另有 1 个中转额度档默认隐藏）
+- **标准商品 + 别名**：把「G Plus 未接马 质保首登」「印度-PLUS-outlook邮箱-保首登」这类不同叫法归到同一个标准商品下；Claude 独立区分 Pro / Max 成品号、代充、普通账号、接码和 KYC 服务
+- **OpenAI / Claude 自动分组（试用）**：从标题和原分类识别商品类型与套餐，OpenAI 自动归入 PriceAI 风格的标准目录，Claude 按实际出现的属性组合生成目录。倍数、面额、期限、接码状态、邮箱、地区等在右侧组合筛选，仅显示有不同取值的属性；报价中保留全部识别属性和依据，关键规格不明的商品集中到一个待确认入口，逐条显示原因
 - **质保等级识别**：自动标出「有质保 / 仅首登 / 无质保 / 未注明」，避免被最低价误导
 - **同款聚合**：按属性指纹（渠道 / 邮箱 / 接马状态 / 质保 / 独享 / 反代）把同款聚成一组，标注价差
 - **价格走势**：按抓取轮次聚合该档位的最低价曲线
@@ -23,11 +24,27 @@
 - 详情抽屉展示全部信息 + 原站链接
 
 **交互**
-- 左侧平台 → 分组 → 标准商品三级结构，可逐级折叠
+- 左侧平台 → 分组 → 标准商品三级结构，平台和分组默认收起，手动展开/收起后记住选择
 - 右侧按价格 / 质保 / 店铺 / 库存排序
 - 全局搜索（覆盖商品名与描述文本）
 - 所有 UI 偏好持久化（折叠、开关、当前分类、排序）
 - SSE 实时抓取进度
+
+两个平台的自动分组仅在读取报价时生成，不改写数据库里的标准商品归类。OpenAI 参考 PriceAI 的标准目录，直接展示普号、周边与自助服务、Codex 额度充值、Go、Plus 试用订阅、Plus 正价代充、Team / Business，以及 Pro 100 / 200 / 500 刀档的代充和成品号。目录仅在有对应报价时出现；Team 的席位、母号/子号、共享和轮转商品汇入同一入口，交付细节保留在右侧筛选。
+
+左侧仅对包含多个商品子类型的目录显示可折叠大类，只有一个子项时直接显示完整商品入口，不再额外套一层；判断依据是子类型数量，不是店铺或报价数量。Plus、Pro 按成品号、代充、共享号组织；Plus 正价与其他代充放在同一个代充大类，Pro 代充和成品号各自包含 100 / 200 / 500 刀及其他档位。普号、周边服务、Codex 充值、Go、Team / Business、接码及待确认等只有一个子项时直接展示。大类默认收起并记住展开状态，具体商品的报价和右侧筛选不变。
+
+Claude 同步采用套餐加交付方式组织目录：Pro、Max 各自区分成品号、代充和实际出现的共享号；Max 内按明确写出的 5x、20x 等倍数生成子项，并按倍数升序排列。KYC 认证与提链收在同一服务目录。与 OpenAI 一样，只有多个子类型才显示汇总大类，单个子项直接展示并保留套餐、倍数和交付方式。未识别到套餐的商品不强行归入 Pro 或 Max，期限、邮箱、地区、认证状态等仍在右侧筛选。
+
+两个平台内均优先展示包含多个子类型的汇总分组，单一类型入口排在其后；两类入口各自保留原有相对顺序，分组内的子项顺序不变。
+
+Pro 档位根据商品明确写出的面额或参考目录的倍数对应关系（5x → 100、20x → 200、25x/50x 或 Pro Max → 500）识别，不根据销售价格推断；相互矛盾的规格进入待确认。其他已注明的档位单独保留，不强行归入这三档。Plus 正价代充须有标题中的正价、正规、官方充值或真实付费等依据，半价、试用及未注明渠道的充值另列。共享号、接码等按实际类型保留，信息不足或冲突的报价进入待确认。
+
+一个目录可包含不同期限或交付细节，侧栏价格表示报价起价；使用右侧筛选缩小范围后再比较报价。倍数和明确写出的期限直接取自商品文字，未注明的筛选值显示为「未注明」，不推定月卡。当前仍使用属性和别名词表，尚未采用语义模型；自动组试用期间不展示历史走势或二次同款聚合。页面不提供分组模式切换，预设分类仍可通过 API 的 `openai_grouping=preset`、`claude_grouping=preset` 参数读取。
+
+第三方号池余额充值、API / 中转额度、镜像站服务不纳入比价：两个平台的自动目录、预设分类、报价及全局搜索均统一过滤，重新抓取后仍适用。仅说明支持反代或可用于自建号池的成品账号保留，Codex 官方点数充值保留。原始抓取数据仍保存在数据库中。
+
+标题里的网址、卡密或 CDK 字样不能单独证明商品是订阅充值。独立子邮箱不进入平台主商品目录，成品与代充可选的报价列入待确认；“24 小时自动充值”等服务时效不作为订阅期限。
 
 ## 技术选型
 
@@ -106,11 +123,14 @@ cardweb/
 │   ├── fetcher.js            抓取 wzyp.cn，解析描述/发货格式/售后
 │   ├── products.js           标准商品匹配 + 质保识别 + 矛盾检测
 │   ├── cluster.js            跨店同款聚类（属性指纹）
+│   ├── auto-groups.js        Claude 属性提取 + 两个平台共用的动态分组汇总
+│   ├── openai-auto-groups.js OpenAI 关键词属性提取与动态分组（试用）
 │   ├── db.js                 SQLite 表结构与查询
 │   ├── scheduler.js          串行抓取调度器
 │   └── classify.js           旧版档位分类（保留兼容）
 ├── config/
 │   ├── openai-products.json  标准商品 + 别名 + 质保词表 + 价格区间（主配置）
+│   ├── claude-products.json  Claude 标准商品 + 别名（复用质保词表）
 │   └── tiers.json            旧版档位规则
 ├── public/
 │   └── index.html            前端（单文件，无构建）
@@ -131,7 +151,7 @@ price_log   价格变更记录（仅价格或库存变化时写入）
 
 | 表 | 字段 | 说明 |
 | --- | --- | --- |
-| products | `product_key` | 标准商品 key，`NULL` 表示非 OpenAI 品类 |
+| products | `product_key` | 标准商品 key，`NULL` 表示未归类或不属于已支持的平台 |
 | products | `warranty` | `subscription` / `first_login` / `none` / `unknown` |
 | products | `delivery` | 提取的发货格式，如「邮箱----密码----2FA」 |
 | products | `conflict` | 标题与描述矛盾的原因，`NULL` 表示无矛盾 |
@@ -148,6 +168,8 @@ price_log   价格变更记录（仅价格或库存变化时写入）
 | GET | `/api/status` | 调度器状态 |
 | GET | `/api/events` | SSE 实时进度 |
 | GET | `/api/products` | 标准商品列表（含平台信息、最低价、价格区间） |
+| GET | `/api/products?openai_grouping=auto&claude_grouping=auto` | 页面使用的两个平台动态分组；API 参数仍可分别设为 `auto` / `preset`，附各自组数和待确认数 |
+| GET | `/api/products?grouping=auto` | 兼容旧版 Claude 自动分组入口，OpenAI 仍为预设分类 |
 | GET | `/api/products/:key/offers` | 某标准商品报价，`?in_stock=1&sort=price\|warranty\|stock` |
 | GET | `/api/products/:key/clusters` | 同款聚类结果 |
 | GET | `/api/products/:key/trend` | 档位最低价走势，`?hours=720` |
@@ -160,9 +182,9 @@ price_log   价格变更记录（仅价格或库存变化时写入）
 
 ## 标准商品模型
 
-`config/openai-products.json` 分三层：
+`config/openai-products.json` 与 `config/claude-products.json` 使用同一套标准商品结构：
 
-**平台元信息**（后续接 Claude 等）
+**平台元信息**（OpenAI 与 Claude 各有独立配置，接口统一返回平台、分组和标准商品）
 
 ```json
 { "platformMeta": { "key": "openai", "name": "OpenAI", "desc": "ChatGPT / Plus / Pro / Codex" } }
@@ -288,11 +310,10 @@ POST https://wzyp.cn/shopApi/Shop/goodsList   { token, current, pageSize }
 
 ## 开发提示
 
-改完 `config/openai-products.json` 后，不需要重新抓取，调一次接口即可全量重新归类：
+修改任一平台的商品配置后，先重启服务加载配置，再调用以下接口重新归类现有商品并复查标题与描述的矛盾，无需重新抓取：
 
 ```bash
-curl -X POST localhost:8052/api/reclassify
 curl -X POST localhost:8052/api/detect-conflicts
 ```
 
-当前规模：24 家店 / 1890 件商品 / 25 个可见标准商品 / 全量抓取约 7 秒。
+店铺、商品数量以页面和 API 当前返回为准；全量抓取耗时取决于店铺数量、分页和限流重试。

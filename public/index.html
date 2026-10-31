@@ -114,6 +114,22 @@
     font-size: 11px; letter-spacing: .1em; color: var(--text-faint);
     padding: 14px 16px 6px;
   }
+  .toggle:has(input:disabled) { opacity: .5; cursor: default; }
+  .auto-filters {
+    display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 7px 12px;
+    max-height: 148px; overflow-y: auto; padding: 9px 16px;
+    background: var(--panel); border-bottom: 1px solid var(--border-soft);
+  }
+  .auto-filters[hidden] { display: none; }
+  .auto-filter-control { display: flex; align-items: center; gap: 5px; min-width: 0; max-width: 240px; font-size: 12px; color: var(--text-dim); }
+  .auto-filter-control span { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .auto-filter-control select { min-width: 76px; max-width: 160px; }
+  .auto-filters button { padding: 5px 9px; font-size: 12px; }
+  @media (max-width: 760px) {
+    .auto-filters { gap: 6px 8px; padding: 8px 12px; max-height: 144px; }
+    .auto-filter-control { flex: 1 1 140px; max-width: 100%; }
+    .auto-filter-control select { flex: 1; min-width: 0; max-width: 150px; }
+  }
 
 
   /* ---------- 平台大分组 ---------- */
@@ -201,8 +217,11 @@
   }
   .tier-main { min-width: 0; flex: 1 1 auto; }
   .tier-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+  .tier.catalog .tier-name { white-space: normal; line-height: 1.45; }
+  .tier.catalog-child { padding-left: 30px; }
   .tier.active .tier-name { color: #6d4a18; font-weight: 600; }
   .tier-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .tier-desc { font-size: 11px; color: var(--text-dim); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tier-min { color: var(--ok); font-weight: 500; }
   .tier-count {
     flex: 0 0 auto; font-size: 11px; color: var(--text-dim);
@@ -583,6 +602,7 @@
       <span id="lastFetch" class="last-fetch" title="最近一次成功抓取的时间"></span>
     </div>
     <div id="noteBar" class="note-bar" style="display:none"></div>
+    <div id="autoFilters" class="auto-filters" aria-label="报价属性筛选" hidden></div>
     <div id="trendPanel" class="trend-panel hidden">
       <div class="trend-left">
         <div class="trend-head">
@@ -644,6 +664,9 @@ const state = {
   products: [],
   groups: [],
   platforms: [],
+  autoFilterKey: null,
+  autoFilters: {},
+  autoOffersData: null,
   activeKey: PREFS.activeKey || null,
   sort: PREFS.sort || 'price',
   sortDesc: PREFS.sortDesc === true,
@@ -659,6 +682,8 @@ const state = {
   })(),
   warrantyLabels: { subscription: '有质保', first_login: '仅首登', none: '无质保', unknown: '未注明' },
 };
+let productsVersion = 0;
+let offersVersion = 0;
 
 function toast(msg, isError) {
   const el = $('#toast');
@@ -737,39 +762,43 @@ function renderLastFetch() {
 
 // ---------- 标准商品列表 ----------
 async function loadProducts() {
-  const { platform, groups, products } = await api('/api/products');
+  const version = ++productsVersion;
+  const previousPlatform = state.products.find((p) => p.key === state.activeKey)?.platform;
+  let data;
+  try { data = await api('/api/products?openai_grouping=auto&claude_grouping=auto'); }
+  catch (err) {
+    if (version !== productsVersion) return;
+    throw err;
+  }
+  if (version !== productsVersion) return;
+  const { platforms, platform, groups, products } = data;
   state.groups = groups;
   state.products = products;
-  // 当前只有一个平台；Claude 接入后在此追加 { key, name, desc, current: false }
-  state.platforms = platform
-    ? [{ ...platform, current: true },
-       { key: 'claude', name: 'Claude', desc: '即将接入', current: false }]
-    : [];
+  state.platforms = platforms || (platform ? [platform] : []);
   if (!products.some((p) => p.key === state.activeKey)) {
-    state.activeKey = products[0]?.key || null;
+    state.activeKey = products.find((p) => p.platform === previousPlatform && p.inStock > 0)?.key
+      || products.find((p) => p.platform === previousPlatform)?.key
+      || products[0]?.key || null;
     savePref('activeKey', state.activeKey);
   }
   renderLastFetch();
   renderSidebar();
-  renderOffers();
+  await renderOffers().catch((err) => toast('报价加载失败：' + err.message, true));
 }
 
 function renderSidebar() {
   const aside = $('#tierList');
-  if (!state.products.length) {
-    aside.innerHTML = '<div class="empty">还没有商品<br>在顶部粘贴链接添加店铺</div>';
-    return;
-  }
 
-  // 平台层级：目前只有 OpenAI；后续加 Claude/Gemini 时在此追加
+  // 按平台分别展示分组与标准商品。
   const platforms = state.platforms.length
     ? state.platforms
     : [{ key: 'openai', name: 'OpenAI', desc: '', order: 1, current: true }];
 
   let html = '';
+  if (!state.products.length) html += '<div class="empty">还没有商品<br>在顶部粘贴链接添加店铺</div>';
   for (const pf of platforms) {
     const isCurrent = pf.current !== false;
-    const pfCollapsed = state.collapsed['platform:' + pf.key];
+    const pfCollapsed = state.collapsed['platform:' + pf.key] ?? true;
 
     if (!isCurrent) {
       // 预留平台（未接入数据）
@@ -789,28 +818,98 @@ function renderSidebar() {
 
     if (pfCollapsed) continue;
 
-    for (const g of state.groups) {
-      const items = state.products.filter((p) => p.group === g.key);
+    const platformItems = state.products.filter((p) => (p.platform || 'openai') === pf.key);
+    const catalogMode = platformItems.every((p) => p.automatic);
+    const navGroups = catalogMode ? [] : state.groups.filter((g) => (g.platform || 'openai') === pf.key);
+    if (catalogMode) {
+      const sections = new Map();
+      for (const p of platformItems) {
+        const plan = pf.key === 'claude' ? p.attributes?.plan : p.name.match(/^ChatGPT (Plus|Pro) /)?.[1];
+        const delivery = { charge: '代充', account: '成品号', shared: '共享号' }[p.group];
+        let key = `catalog-${p.group}`;
+        let name = state.groups.find((g) => g.platform === pf.key && g.key === p.group)?.name || p.name;
+        if (pf.key === 'claude') {
+          if (p.pending) {
+            key = 'catalog-pending'; name = 'Claude 待确认商品';
+          } else if (delivery) {
+            key = `catalog-${(plan || 'unknown').toLowerCase()}-${p.group}`;
+            name = plan === 'Free' ? `Claude 普通账号${p.group === 'account' ? '' : ` · ${delivery}`}`
+              : `Claude ${plan || '套餐未注明'} · ${delivery}`;
+          } else if (p.group === 'sms') {
+            key = 'catalog-sms'; name = 'Claude 接码验证';
+          } else if (p.group === 'kyc' || p.group === 'kyc-link') {
+            key = 'catalog-kyc'; name = 'Claude KYC 服务';
+          } else {
+            name = `Claude ${name}`;
+          }
+        } else if (plan && delivery) {
+          key = `catalog-${plan.toLowerCase()}-${p.group}`;
+          name = `ChatGPT ${plan} · ${delivery}`;
+        } else if (/^ChatGPT 普号/.test(p.name)) {
+          key = 'catalog-free'; name = 'ChatGPT 普号';
+        } else if (/周边与自助服务/.test(p.name)) {
+          key = 'catalog-services'; name = '周边与自助服务';
+        } else if (p.name === 'Codex 额度充值') {
+          key = 'catalog-credits'; name = 'Codex 额度充值';
+        } else if (p.name === 'ChatGPT Go') {
+          key = 'catalog-go'; name = 'ChatGPT Go';
+        } else if (p.name === 'ChatGPT Team / Business') {
+          key = 'catalog-team'; name = 'ChatGPT Team / Business';
+        } else if (p.group === 'sms') {
+          key = 'catalog-sms'; name = '接码验证';
+        } else if (p.pending) {
+          key = 'catalog-pending'; name = '待确认商品';
+        }
+        if (!sections.has(key)) {
+          const section = { key, name, items: [] };
+          sections.set(key, section);
+          navGroups.push(section);
+        }
+        sections.get(key).items.push(p);
+      }
+    }
+    const orderedGroups = navGroups.map((g) => ({ ...g,
+      items: g.items || platformItems.filter((p) => p.group === g.key),
+    })).sort((a, b) => Number(b.items.length > 1) - Number(a.items.length > 1));
+    for (const g of orderedGroups) {
+      const items = g.items;
       if (!items.length) continue;
-      const collapsed = state.collapsed[g.key];
-      const total = items.reduce((n, p) => n + p.offers, 0);
-      const openCount = items.filter((p) => p.inStock > 0).length;
-      html += `<div class="group-head sub ${collapsed ? 'collapsed' : ''}" data-group="${g.key}">
+      const grouped = items.length > 1;
+      if (grouped) {
+        const groupKey = pf.key + ':' + g.key;
+        const collapsed = state.collapsed[groupKey] ?? (pf.key === 'openai' ? state.collapsed[g.key] : undefined) ?? true;
+        const total = items.reduce((n, p) => n + p.offers, 0);
+        const openCount = items.filter((p) => p.inStock > 0).length;
+        html += `<div class="group-head sub ${collapsed ? 'collapsed' : ''}" data-group="${groupKey}">
       <span class="chev">▾</span>
       <span class="group-name">${esc(g.name)}</span>
       <span class="group-meta">${items.length} 项 · ${openCount} 有货</span>
       <span class="group-count">${total}</span>
     </div>`;
-      if (collapsed) continue;
+        if (collapsed) continue;
+      }
       html += items.map((p) => {
         const belowBand = p.band && p.minInStock != null && p.minInStock < p.band.min;
-        const priceTxt = p.minInStock != null
-          ? `最低 <span class="tier-min">${money(p.minInStock)}</span>` +
+        const priceTxt = p.pending ? '待核实'
+          : p.minInStock != null
+          ? `${p.automatic ? '报价起' : '最低'} <span class="tier-min">${money(p.minInStock)}</span>` +
             (belowBand ? ` <span class="band-warn" title="低于该档正常区间 ¥${p.band.min}+，可能不是官方订阅">⚠</span>` : '')
           : '暂无有货';
-        return `<div class="tier ${p.key === state.activeKey ? 'active' : ''}" data-key="${p.key}">
+        let displayName = p.name;
+        if (catalogMode && pf.key === 'claude' && !grouped) {
+          displayName = `Claude ${p.name}`;
+        } else if (catalogMode && pf.key === 'claude') {
+          const plan = p.attributes?.plan;
+          displayName = plan === 'Max' ? `${p.attributes.multiplier || '倍数未注明'} 档`
+            : plan === 'Free' ? '普通账号'
+            : plan && ['account', 'charge', 'shared'].includes(p.group) ? `${plan} 订阅` : p.name;
+        } else if (catalogMode && grouped) {
+          displayName = p.name.replace(/^ChatGPT (?:Plus|Pro) /, '').replace(/^ChatGPT /, '').replace(/ (?:代充|成品号)$/, '');
+        }
+        return `<div class="tier ${catalogMode ? 'catalog' : ''} ${catalogMode && grouped ? 'catalog-child' : ''} ${p.key === state.activeKey ? 'active' : ''}" data-key="${p.key}">
           <div class="tier-main">
-            <div class="tier-name">${esc(p.name)}</div>
+            <div class="tier-name" title="${esc(p.name)}">${esc(displayName)}</div>
+            ${catalogMode ? `<div class="tier-desc" title="${esc(p.spec)}">${esc(p.spec)}</div>` : ''}
             <div class="tier-sub">${priceTxt}</div>
           </div>
           <span class="tier-count">${p.offers}</span>
@@ -819,11 +918,10 @@ function renderSidebar() {
     }
   }
   aside.innerHTML = html;
-
   aside.querySelectorAll('[data-platform]').forEach((el) => {
     el.onclick = () => {
       const k = 'platform:' + el.dataset.platform;
-      state.collapsed[k] = !state.collapsed[k];
+      state.collapsed[k] = !el.classList.contains('collapsed');
       savePref('collapsed', state.collapsed);
       renderSidebar();
     };
@@ -832,7 +930,7 @@ function renderSidebar() {
   aside.querySelectorAll('[data-group]').forEach((el) => {
     el.onclick = () => {
       const k = el.dataset.group;
-      state.collapsed[k] = !state.collapsed[k];
+      state.collapsed[k] = !el.classList.contains('collapsed');
       savePref('collapsed', state.collapsed);
       renderSidebar();
     };
@@ -851,19 +949,73 @@ function renderSidebar() {
 }
 
 // ---------- 报价 ----------
-async function renderOffers() {
+function resetAutoFilters(key = null) {
+  state.autoFilterKey = key;
+  state.autoFilters = {};
+  state.autoOffersData = null;
+  $('#autoFilters').hidden = true;
+  $('#autoFilters').innerHTML = '';
+}
+
+function autoAttributeValue(offer, field) {
+  const value = offer.autoAttributes?.[field];
+  return value == null || String(value).trim() === '' ? '未注明' : String(value);
+}
+
+function renderAutoFilters(offers) {
+  const box = $('#autoFilters');
+  const fields = [...new Set(offers.flatMap((o) => Object.keys(o.autoAttributes || {})))];
+  const options = fields.map((field) => ({ field,
+    values: [...new Set(offers.map((o) => autoAttributeValue(o, field)))].sort((a, b) => a.localeCompare(b, 'zh')),
+  })).filter((option) => option.values.length > 1);
+  for (const [field, value] of Object.entries(state.autoFilters)) {
+    if (!options.some((option) => option.field === field && option.values.includes(value))) delete state.autoFilters[field];
+  }
+  box.hidden = !options.length;
+  box.innerHTML = options.map(({ field, values }) => `<label class="auto-filter-control">
+    <span title="${esc(field)}">${esc(field)}</span>
+    <select data-auto-filter="${esc(field)}" aria-label="筛选${esc(field)}">
+      <option value="">全部</option>
+      ${values.map((value) => `<option value="${esc(value)}" ${state.autoFilters[field] === value ? 'selected' : ''}>${esc(value)}</option>`).join('')}
+    </select>
+  </label>`).join('') + (options.length ? `<button id="clearAutoFilters" ${Object.keys(state.autoFilters).length ? '' : 'disabled'}>清空筛选</button>` : '');
+  box.querySelectorAll('[data-auto-filter]').forEach((select) => {
+    select.onchange = () => {
+      const field = select.dataset.autoFilter;
+      if (select.value) state.autoFilters[field] = select.value;
+      else delete state.autoFilters[field];
+      renderOffers(true).catch((err) => toast('报价加载失败：' + err.message, true));
+    };
+  });
+  const clear = $('#clearAutoFilters');
+  if (clear) clear.onclick = () => {
+    state.autoFilters = {};
+    renderOffers(true).catch((err) => toast('报价加载失败：' + err.message, true));
+  };
+}
+
+async function renderOffers(reuseAutomatic = false) {
+  const version = ++offersVersion;
   const tbody = $('#tbody');
   const empty = $('#empty');
   syncMobileSort();
+  const p = state.products.find((x) => x.key === state.activeKey);
+  const automatic = !state.keyword && !!p?.automatic;
+  if (!automatic || state.autoFilterKey !== state.activeKey) resetAutoFilters(automatic ? state.activeKey : null);
+  for (const [id, checked] of [['groupSame', state.groupSame], ['showTrend', state.showTrend]]) {
+    const input = $('#' + id);
+    input.disabled = automatic;
+    input.checked = !automatic && checked;
+    input.parentElement.title = automatic ? '自动分组试用中暂不提供此功能' : '';
+  }
 
   // 搜索模式优先：命中跨分类显示
-  if (state.keyword) { $('#trendPanel').classList.add('hidden'); return renderSearch(); }
+  if (state.keyword) { $('#trendPanel').classList.add('hidden'); return renderSearch(version); }
 
   if (!state.activeKey) {
     tbody.innerHTML = ''; empty.style.display = 'block'; empty.textContent = '暂无数据';
     return;
   }
-  const p = state.products.find((x) => x.key === state.activeKey);
   $('#tierTitle').textContent = p?.name || '商品';
   $('#tierSpec').textContent = p?.spec || '';
   $('#tierMeta').textContent = p
@@ -876,34 +1028,67 @@ async function renderOffers() {
   if (p?.band && p?.minInStock != null && p.minInStock < p.band.min) {
     notes.push(`本档正常价格区间为 ¥${p.band.min} ~ ¥${p.band.max}；当前最低价 ¥${p.minInStock} 明显偏低，注意核实是否为额度、中转或非官方渠道`);
   }
-  if (notes.length) { note.style.display = 'block'; note.textContent = '⚠ ' + notes.join('　｜　'); }
+  if (notes.length) { note.style.display = 'block'; note.textContent = (automatic ? '自动分组 · ' : '⚠ ') + notes.join('　｜　'); }
   else note.style.display = 'none';
 
-  if (state.groupSame) {
-    renderTrend(state.activeKey, null);
-    return renderClusters(p);
+  if (automatic) {
+    $('#trendPanel').classList.add('hidden');
+    $('#pickPanel').innerHTML = '';
+  }
+  if (state.groupSame && !automatic) {
+    renderTrend(state.activeKey, null, version);
+    return renderClusters(p, version);
   }
 
   const params = new URLSearchParams({
-    in_stock: state.hideZero ? '1' : '0',
+    in_stock: automatic ? '0' : state.hideZero ? '1' : '0',
     sort: state.sort === 'shop' ? 'price' : state.sort,
   });
-  const data = await api(`/api/products/${state.activeKey}/offers?${params}`);
-  const list = data.offers;
+  let data = automatic && reuseAutomatic ? state.autoOffersData : null;
+  if (!data) {
+    if (automatic) $('#autoFilters').querySelectorAll('select,button').forEach((el) => { el.disabled = true; });
+    try { data = await api(`/api/products/${state.activeKey}/offers?${params}`); }
+    finally {
+      if (version === offersVersion && automatic) {
+        $('#autoFilters').querySelectorAll('select,button').forEach((el) => { el.disabled = false; });
+      }
+    }
+  }
+  if (version !== offersVersion) return;
+  let list = data.offers;
+  if (automatic) {
+    state.autoOffersData = data;
+    renderAutoFilters(list);
+    list = list.filter((o) => (!state.hideZero || o.stock > 0)
+      && Object.entries(state.autoFilters).every(([field, value]) => autoAttributeValue(o, field) === value));
+    $('#tierMeta').textContent = `${list.length} / ${data.offers.length} 条报价 · ${list.filter((o) => o.stock > 0).length} 有货 · ${new Set(list.map((o) => o.shopId)).size} 家店`;
+  }
 
-  renderTrend(state.activeKey, list);
+  if (!automatic) renderTrend(state.activeKey, list, version);
 
-  const rows = state.sort === 'shop'
-    ? [...list].sort((a, b) => a.shopName.localeCompare(b.shopName, 'zh'))
-    : list;
+  const rows = [...list];
+  if (state.sort === 'shop') rows.sort((a, b) => a.shopName.localeCompare(b.shopName, 'zh'));
+  else if (automatic) {
+    const warrantyOrder = { subscription: 0, first_login: 1, none: 2, unknown: 3 };
+    rows.sort((a, b) => {
+      if (state.sort === 'stock') return (b.stock || 0) - (a.stock || 0) || a.price - b.price;
+      if (state.sort === 'warranty') return (warrantyOrder[a.warranty] ?? 3) - (warrantyOrder[b.warranty] ?? 3) || a.price - b.price;
+      if (state.sort === 'name') return a.name.localeCompare(b.name, 'zh');
+      return a.price - b.price;
+    });
+  }
   const sorted = state.sortDesc ? [...rows].reverse() : rows;
-  const best = sorted.find((o) => (o.stock || 0) > 0 && o.price > 0)?.price ?? null;
+  const best = automatic ? null : sorted.find((o) => (o.stock || 0) > 0 && o.price > 0)?.price ?? null;
   const labels = data.warrantyLabels || state.warrantyLabels;
 
   tbody.innerHTML = sorted.map((o) => {
     const zero = !o.stock;
     const w = o.warranty || 'unknown';
+    const attributes = Object.entries(o.autoAttributes || {}).map(([k, v]) => `${k}：${v}`).join(' · ');
     const extra = [
+      automatic && attributes ? `<span class="mini" title="识别属性">${esc(attributes)}</span>` : '',
+      automatic && o.autoEvidence?.length ? `<span class="mini dim" title="分组依据">命中词：${esc(o.autoEvidence.join(' / '))}</span>` : '',
+      automatic && o.autoPendingReason ? `<span class="mini conflict">待确认：${esc(o.autoPendingReason)}</span>` : '',
       o.delivery ? `<span class="mini" title="发货格式">📦 ${esc(o.delivery.length > 46 ? o.delivery.slice(0, 46) + '…' : o.delivery)}</span>` : '',
       o.afterSale ? `<span class="mini dim" title="售后条款">${esc(o.afterSale.length > 60 ? o.afterSale.slice(0, 60) + '…' : o.afterSale)}</span>` : '',
       o.conflict ? `<span class="mini conflict" title="标题与描述矛盾，下单前务必核实">⚠ ${esc(o.conflict)}</span>` : '',
@@ -929,7 +1114,9 @@ async function renderOffers() {
 
   if (!sorted.length) {
     empty.style.display = 'block';
-    empty.innerHTML = state.hideZero
+    empty.innerHTML = automatic && Object.keys(state.autoFilters).length
+      ? '没有符合当前条件的报价<br><span style="font-size:12px">可清空筛选，或取消「隐藏缺货」</span>'
+      : state.hideZero
       ? '该商品当前没有有货报价<br><span style="font-size:12px">取消勾选「隐藏缺货」查看全部</span>'
       : '暂无报价';
   } else {
@@ -949,7 +1136,8 @@ function hl(text, kw) {
   return t.replace(new RegExp('(' + k + ')', 'gi'), '<mark>$1</mark>');
 }
 
-async function renderSearch() {
+async function renderSearch(version = ++offersVersion) {
+  resetAutoFilters();
   const tbody = $('#tbody');
   const empty = $('#empty');
   const kw = state.keyword;
@@ -968,6 +1156,7 @@ async function renderSearch() {
     limit: '500',
   });
   const data = await api(`/api/search?${params}`);
+  if (version !== offersVersion) return;
   const list = data.offers;
 
   $('#tierMeta').textContent = `${data.total} 条结果`;
@@ -1025,11 +1214,12 @@ async function renderSearch() {
 
 
 // ---------- 同款聚合视图 ----------
-async function renderClusters(meta) {
+async function renderClusters(meta, version) {
   const tbody = $('#tbody');
   const empty = $('#empty');
   const params = new URLSearchParams({ in_stock: state.hideZero ? '1' : '0' });
   const data = await api(`/api/products/${state.activeKey}/clusters?${params}`);
+  if (version !== offersVersion) return;
   const labels = state.warrantyLabels;
 
   // 聚类时用全部条目做推荐
@@ -1155,7 +1345,7 @@ function renderPick(offers) {
 }
 
 // ---------- 档位价格走势 ----------
-async function renderTrend(productKey, offers = null) {
+async function renderTrend(productKey, offers = null, version) {
   const panel = $('#trendPanel');
   if (!state.showTrend) { panel.classList.add('hidden'); return; }
   panel.classList.remove('hidden');
@@ -1170,6 +1360,7 @@ async function renderTrend(productKey, offers = null) {
 
   try {
     const d = await api(`/api/products/${productKey}/trend?hours=720`);
+    if (version !== offersVersion) return;
     const st = d.stats;
     if (!st || st.points < 2) {
       body.innerHTML = '<div class="spark-empty">历史数据不足（同一档位至少需要 2 次抓取记录）；多抓几次即可看到走势。</div>';
@@ -1181,6 +1372,7 @@ async function renderTrend(productKey, offers = null) {
       `<span class="dir-${dir}">${st.change >= 0 ? '+' : ''}${st.change.toFixed(2)}（${st.changePct.toFixed(1)}%）</span>` +
       `　·　${st.points} 次抓取`;
   } catch (err) {
+    if (version !== offersVersion) return;
     body.innerHTML = '<div class="spark-empty">走势加载失败：' + esc(err.message) + '</div>';
   }
 }
@@ -1369,7 +1561,6 @@ function connectSSE() {
         if (state.scheduler) state.scheduler.current = { token: evt.token, nickname: evt.nickname };
         renderStatus(); break;
       case 'shop:ok':
-        toast(`${evt.nickname}：${evt.total} 件（新增 ${evt.added}，变动 ${evt.changed}）`);
         loadShops().then(loadProducts); break;
       case 'shop:error':
         toast(`${evt.nickname || evt.token} 抓取失败：${evt.error}`, true);

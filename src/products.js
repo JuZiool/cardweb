@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CONFIG_PATH = join(__dirname, '..', 'config', 'openai-products.json');
+const CONFIG_PATHS = ['openai-products.json', 'claude-products.json']
+  .map((file) => join(__dirname, '..', 'config', file));
 
 let cfg = load();
 
@@ -12,21 +13,25 @@ function normList(arr) {
 }
 
 function load() {
-  const raw = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
-
+  const configs = CONFIG_PATHS.map((file) => JSON.parse(readFileSync(file, 'utf8')));
+  const raw = configs[0];
   const products = new Map();
-  for (const p of raw.products) products.set(p.key, { ...p });
-
   const groups = new Map();
-  for (const g of raw.groups) groups.set(g.key, g);
-
-  const rules = raw.rules.map((r) => ({
-    product: r.product,
-    aliases: normList(r.aliases),
-    requireAny: normList(r.requireAny),
-    excludeAny: normList(r.excludeAny),
-    regex: r.regex ? new RegExp(r.regex, 'i') : null,
-  }));
+  const rules = new Map();
+  const platforms = [];
+  for (const config of configs) {
+    const platform = config.platformMeta;
+    platforms.push(platform);
+    for (const p of config.products) products.set(p.key, { ...p, platform: platform.key });
+    for (const g of config.groups) groups.set(`${platform.key}:${g.key}`, { ...g, platform: platform.key });
+    rules.set(platform.key, config.rules.map((r) => ({
+      product: r.product,
+      aliases: normList(r.aliases),
+      requireAny: normList(r.requireAny),
+      excludeAny: normList(r.excludeAny),
+      regex: r.regex ? new RegExp(r.regex, 'i') : null,
+    })));
+  }
 
   const warranty = {
     subscription: normList(raw.warranty?.subscription),
@@ -34,7 +39,7 @@ function load() {
     noneMarkers: normList(raw.warranty?.none_markers),
   };
 
-  return { products, groups, rules, warranty, raw, platform: raw.platformMeta || { key: 'openai', name: 'OpenAI', order: 1 } };
+  return { products, groups, rules, warranty, raw, platforms, platform: platforms[0] };
 }
 
 /**
@@ -102,18 +107,40 @@ function isGuideListing(name, categoryRaw) {
     || /保姆级.*教程.*指南/i.test(name);
 }
 
+/** 排除售卖中转、号池余额或镜像服务的条目，账号的兼容能力不作为排除依据。 */
+export function isRelayProduct({ name = '', categoryRaw = '' }) {
+  const clean = String(name).normalize('NFKC')
+    .replace(/https?:\/\/[^\s<>【】（）()，,。；;|｜]+/ig, ' ')
+    .replace(/(?:不是|并非|不属于|不支持|不能|无需|不走|不含|非)\s*(?:中转站?|号池|镜像站?|api)/ig, ' ')
+    .replace(/(?:可(?:以)?(?:用于|用来)|用于|用来|适用于|支持(?:自建|搭建)?|可(?:自建|搭建))\s*(?:自建)?(?:号池|中转|api|反代)[^，,。；;|｜【】（）()]*/ig, ' ')
+    .replace(/[^，,。；;|｜【】（）()]*(?:教程|教学|使用说明|操作说明)[^，,。；;|｜【】（）()]*/ig, ' ');
+  if (/中转|镜像(?:站|服务)|号池[^，,。；;|｜]{0,24}(?:充值|余额|额度)|(?:充值|余额|额度)[^，,。；;|｜]{0,12}号池|\bapi\b[^，,。；;|｜【】（）()]{0,18}(?:额度|余额|充值|密钥|key)|\d+\s*[mk亿万]\s*tokens?/i.test(clean)) return true;
+  const category = String(categoryRaw).normalize('NFKC');
+  const account = /成品|普号|白号|老号|账[号户密]|帐[号户密]|席位|代充|直充|已接[马码]|未接[马码]|官方.*(?:点数|额度)/i.test(clean);
+  return !account && /中转|号池|镜像(?:站|服务)|\bapi\b/i.test(category);
+}
+
 /**
  * 返回 { productKey, warranty }。
- * 按 rules 顺序，首个命中即返回；不属于 OpenAI 平台返回 null。
+ * 先确定平台，再按该平台 rules 顺序取首个命中；非目标商品返回 null。
  */
 export function classifyProduct(item) {
   const name = item.name || '';
   const nameLower = name.toLowerCase();
 
-  if (isGuideListing(name, item.categoryRaw)) return null;
-  if (isOtherPlatform(nameLower)) return null;
+  if (isGuideListing(name, item.categoryRaw) || isRelayProduct(item)) return null;
+  const category = (item.categoryRaw || '').toLowerCase();
+  const claudeName = /claude|anthropic|克劳德|克劳徳|克劳/.test(nameLower);
+  // 仅补认纯 Claude 分类里的无平台词成品号，混合分类不能作为平台依据。
+  const claudeCategory = /claude|anthropic|克劳/.test(category)
+    && !/codex|openai|gpt|gemini|gro[k .]|gork|muse/.test(category);
+  const platform = claudeName || (claudeCategory && /已过k(?:yc)?无订阅.*(?:成品号|普号)/i.test(name))
+    ? 'claude' : 'openai';
+  if (platform === 'claude') {
+    if (/接马手机卡|能用\s*claude|claude[、,，/\s]+codex可用/i.test(name)) return null;
+  } else if (isOtherPlatform(nameLower)) return null;
 
-  for (const rule of cfg.rules) {
+  for (const rule of cfg.rules.get(platform)) {
     if (matchRule(rule, name, nameLower)) {
       return { productKey: rule.product, warranty: warrantyLevel(name) };
     }
@@ -131,6 +158,10 @@ export function allProducts() {
 
 export function platformMeta() {
   return cfg.platform;
+}
+
+export function allPlatforms() {
+  return [...cfg.platforms].sort((a, b) => a.order - b.order);
 }
 
 export function allGroups() {

@@ -1,12 +1,14 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { isRelayProduct } from './products.js';
 
 let db;
 
 export function openDb(file) {
   if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
   db = new DatabaseSync(file);
+  db.function('is_relay_product', (name, categoryRaw) => Number(isRelayProduct({ name, categoryRaw })));
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
@@ -204,7 +206,7 @@ export function tierSummary({ inStockOnly = false } = {}) {
            MIN(p.price)                                          AS min_price_any,
            COUNT(DISTINCT p.shop_id)                             AS shops
     FROM products p
-    WHERE 1 = 1 ${where}
+    WHERE 1 = 1 ${where} AND is_relay_product(p.name, p.category_raw) = 0
     GROUP BY p.tier
   `).all();
 }
@@ -225,6 +227,7 @@ export function productsByTier(tier, { inStockOnly = false, sort = 'price' } = {
     FROM products p
     JOIN shops s ON s.id = p.shop_id
     WHERE p.tier = ? AND p.is_active = 1 ${stockCond}
+      AND is_relay_product(p.name, p.category_raw) = 0
     ORDER BY ${order}
   `).all(tier);
 }
@@ -268,6 +271,7 @@ export function productTrend(productKey, { hours = 168, bucketMinutes = 0 } = {}
     FROM price_log l
     JOIN products p ON p.shop_id = l.shop_id AND p.goods_key = l.goods_key
     WHERE p.product_key = ? AND l.fetched_at >= ? AND l.price > 0
+      AND is_relay_product(p.name, p.category_raw) = 0
     ORDER BY l.fetched_at ASC
   `).all(productKey, since);
 
@@ -312,6 +316,7 @@ export function productSummary() {
            MAX(CASE WHEN p.stock > 0 THEN 1 ELSE 0 END)  AS hasStock
     FROM products p
     WHERE p.is_active = 1 AND p.product_key IS NOT NULL
+      AND is_relay_product(p.name, p.category_raw) = 0
     GROUP BY p.product_key
   `).all();
 }
@@ -336,6 +341,7 @@ export function productsByProductKey(productKey, { inStockOnly = false, sort = '
     FROM products p
     JOIN shops s ON s.id = p.shop_id
     WHERE p.product_key = ? AND p.is_active = 1 ${stockCond}
+      AND is_relay_product(p.name, p.category_raw) = 0
     ORDER BY ${order}
   `).all(productKey);
 }
@@ -358,6 +364,7 @@ export function searchProducts(keyword, { inStockOnly = true, limit = 300 } = {}
     FROM products p
     JOIN shops s ON s.id = p.shop_id
     WHERE p.is_active = 1 ${stockCond}
+      AND is_relay_product(p.name, p.category_raw) = 0
       AND (p.name LIKE ? ESCAPE '\\' OR p.desc_text LIKE ? ESCAPE '\\')
     ORDER BY CASE WHEN p.stock > 0 THEN 0 ELSE 1 END, p.price ASC
     LIMIT ?

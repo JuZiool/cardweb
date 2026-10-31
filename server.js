@@ -8,9 +8,11 @@ import { openDb, listShops, insertShop, getShopByToken, deleteShop,
   tierSummary, productsByTier, priceHistory, productSummary, productsByProductKey,
   searchProducts, reclassifyAll, getDb, productTrend } from './src/db.js';
 import { allTiers, tierMeta } from './src/classify.js';
-import { allProducts, allGroups, getProduct, WARRANTY_LABEL, classifyProduct, detectConflict, platformMeta } from './src/products.js';
+import { allProducts, allGroups, allPlatforms, getProduct, WARRANTY_LABEL, classifyProduct, detectConflict, platformMeta, warrantyLevel } from './src/products.js';
 import { parseToken, fetchShopInfo, FetchError } from './src/fetcher.js';
 import { clusterProducts } from './src/cluster.js';
+import { autoGroupClaude } from './src/auto-groups.js';
+import { autoGroupOpenAI } from './src/openai-auto-groups.js';
 import { Scheduler } from './src/scheduler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -22,6 +24,86 @@ const HOST = process.env.HOST || '0.0.0.0';
 openDb(DB_FILE);
 
 const scheduler = new Scheduler({ intervalMinutes: Number(process.env.POLL_MINUTES) || 0 });
+
+function isStandaloneEmail(name) {
+  return /子邮箱|隐私邮箱/.test(name)
+    && !/成品|普号|白号|老号|注册号|已接[马码🐎]|未接[马码🐎]|账号密码|提供账密|代充|直充|已开通|已订阅/.test(name);
+}
+
+function isClaudeCandidate(item) {
+  const name = item.name || '';
+  const category = item.categoryRaw || '';
+  if (isStandaloneEmail(name)) return false;
+  if (/教程/.test(category) || /^(?:【教程】|小白.*教程|免费教程|反代教程|使用.*教程)|保姆级.*教程.*指南/i.test(name)) return false;
+  if (/接马手机卡|能用\s*claude|claude[、,，/\s]+codex可用/i.test(name)) return false;
+  if (/(?:住宅|家宽|原生)\s*ip|住宅代理/i.test(name)
+      && !/成品|普号|账号|帐号|账户|注册号|白号|老号|\bapi\b/i.test(name)) return false;
+  if (/claude|anthropic|克劳德|克劳徳|克劳/i.test(name)) return true;
+  // 店铺分类只能补充缺省平台，不能覆盖标题中的其他平台主体。
+  const other = /codex|openai|gpt|gemini|gro[k .]|\bgro\b|g\s*r\s*o\s*k|gork|google|gmail|youtube|muse|kiro|adobe|firefly|capcut|即梦|反重力|antigravity|leonardo/i;
+  return /claude|anthropic|克劳/i.test(category) && !other.test(category) && !other.test(name)
+    && /成品|账号|帐号|账户|普号|白号|老号|无订阅|\bfree\b|\bpro\b|\bmax\b|\d+(?:\.\d+)?\s*x|接马|接码|kyc|认证|代充|直充|充值|\bapi\b/i.test(name);
+}
+
+function isOpenAICandidate(item) {
+  const name = String(item.name || '').normalize('NFKC');
+  const category = String(item.categoryRaw || '').normalize('NFKC');
+  if (isStandaloneEmail(name)) return false;
+  if (/教程/.test(category) || /^(?:【教程】|小白.*教程|免费教程|反代教程|使用.*教程)|保姆级.*教程.*指南/i.test(name)) return false;
+  if (/接马手机卡|(?:住宅|家宽|原生)\s*ip.*(?:可用|适用)|(?:能用|可用|适合注册).*(?:codex|gpt)/i.test(name)
+      && !/成品|普号|账号|帐号|账户|注册号|白号|老号/i.test(name)) return false;
+  const compact = (text) => text.toLowerCase().replace(/[\s.+·_\-/|]/g, '');
+  const title = compact(name);
+  const cat = compact(category);
+  const other = /claude|anthropic|克劳|gemini|grok|gork|gro(?=plus|premium|super|ultra|heavy|普号|长效|\d)|perplexity|cursor|muse|kiro|adobe|firefly|leonardo|capcut|即梦|antigravity|反重力|googleone|googleai|youtube|suno/i;
+  if (other.test(title) || isClaudeCandidate(item)) return false;
+  const subject = /openai|chatgpt|codex|gpt|oai|ghatcpt|吉皮提|鸡皮提|🐕pt/i;
+  if (subject.test(title)) return true;
+  const pureCategory = !other.test(cat) && (cat === 'g' || subject.test(cat)
+    || /^(?:g(?:plus|pro|free|team|go|中转|官方|成品|账号|接码|接马|自助|充值)|chatg|bugteam|team(?:\d|$))/i.test(cat)
+    || /\bplus\b/i.test(category));
+  const productWords = /成品|账[号户]|帐[号户]|普号|白号|老号|会员|订阅|代充|充值|直充|直冲|卡密|cdk|接马|接码|接🐎|验证码|席位|车位|空间|重置|额度|点数|认证|资格|首登|独享|日抛|速刷|账密|反代|\bapi\b/i;
+  if (pureCategory && (productWords.test(name) || /team|business|\b(?:free|plus|pro|go)\b|头车|轮转|邀请码|发\s*json/i.test(name))) return true;
+  // Plus 是当前商家常用的 OpenAI 简称；Pro、Go 和倍数不单独作为平台证据。
+  return (/\bplus\b/i.test(name) || /gplus|chatplus/i.test(title)) && productWords.test(name);
+}
+
+function automaticSourceOffers() {
+  return getDb().prepare(`
+    SELECT p.id, p.goods_key AS goodsKey, p.name, p.price, p.market_price AS marketPrice,
+           p.stock, p.warranty, p.category_raw AS categoryRaw, p.product_key AS productKey,
+           p.delivery, p.after_sale AS afterSale, p.conflict, p.desc_text AS descText,
+           p.link, p.is_active AS isActive, p.last_seen AS lastSeen,
+           s.id AS shopId, s.token, s.nickname AS shopName
+    FROM products p JOIN shops s ON s.id = p.shop_id
+    WHERE p.is_active = 1
+      AND is_relay_product(p.name, p.category_raw) = 0
+  `).all();
+}
+
+function automaticGroups(platform, rows = automaticSourceOffers()) {
+  const isCandidate = platform === 'openai' ? isOpenAICandidate : isClaudeCandidate;
+  const generate = platform === 'openai' ? autoGroupOpenAI : autoGroupClaude;
+  // ponytail: 当前店铺规模下按请求生成；数据量明显增加后再按抓取轮次缓存。
+  return generate(rows.filter(isCandidate).map((o) => ({ ...o, warranty: o.warranty || warrantyLevel(o.name) })));
+}
+
+function automaticGroup(key) {
+  const match = key.match(/^auto-(openai|claude)-[a-f0-9]{20}$/);
+  return match ? automaticGroups(match[1]).find((g) => g.key === key) : null;
+}
+
+function automaticOffers(group, { inStockOnly = false, sort = 'price' } = {}) {
+  const rows = group.items.filter((o) => !inStockOnly || o.stock > 0);
+  const warrantyOrder = { subscription: 0, first_login: 1, none: 2, unknown: 3 };
+  return rows.sort((a, b) => {
+    if (sort === 'stock') return (b.stock || 0) - (a.stock || 0) || a.price - b.price;
+    if (sort === 'name') return a.name.localeCompare(b.name, 'zh');
+    if (sort === 'warranty') return (warrantyOrder[a.warranty] ?? 3) - (warrantyOrder[b.warranty] ?? 3) || a.price - b.price;
+    if (sort === 'price_desc') return b.price - a.price;
+    return a.price - b.price;
+  });
+}
 
 // ---------- SSE ----------
 const sseClients = new Set();
@@ -183,7 +265,7 @@ async function handleApi(req, res, url) {
     const row = getDb().prepare(`
       SELECT p.*, s.nickname AS shopName, s.token
       FROM products p JOIN shops s ON s.id = p.shop_id
-      WHERE p.id = ?
+      WHERE p.id = ? AND is_relay_product(p.name, p.category_raw) = 0
     `).get(Number(detailMatch[1]));
     if (!row) return json(res, 404, { error: '商品不存在' });
     return json(res, 200, { product: row });
@@ -207,16 +289,17 @@ async function handleApi(req, res, url) {
     return json(res, 200, { keyword: kw, total: enriched.length, offers: enriched });
   }
 
-  // ---- 标准商品（OpenAI） ----
+  // ---- 标准商品 ----
   if (pathname === '/api/products' && method === 'GET') {
     const summary = new Map(productSummary().map((r) => [r.productKey, r]));
-    const groups = allGroups();
-    const products = allProducts()
+    let groups = allGroups();
+    let products = allProducts()
       .filter((p) => !p.hidden)
       .map((p) => {
         const s = summary.get(p.key);
         return {
           key: p.key,
+          platform: p.platform,
           group: p.group,
           order: p.order,
           name: p.name,
@@ -233,18 +316,46 @@ async function handleApi(req, res, url) {
         };
       })
       .filter((p) => p.offers > 0);
-    return json(res, 200, { platform: platformMeta(), groups, products });
+    const modes = {
+      openai: q.get('openai_grouping') || 'preset',
+      claude: q.get('claude_grouping') || q.get('grouping') || 'preset',
+    };
+    const autoGroupingByPlatform = { openai: null, claude: null };
+    const source = Object.values(modes).includes('auto') ? automaticSourceOffers() : [];
+    for (const [platform, mode] of Object.entries(modes)) {
+      if (mode !== 'auto') continue;
+      const generated = automaticGroups(platform, source);
+      products = products.filter((p) => p.platform !== platform)
+        .concat(generated.map(({ items, groupName, ...meta }) => meta));
+      const seen = new Map();
+      for (const g of generated) {
+        if (!seen.has(g.group)) seen.set(g.group, {
+          key: g.group, name: g.groupName, platform, order: seen.size + 1,
+        });
+      }
+      groups = groups.filter((g) => g.platform !== platform).concat([...seen.values()]);
+      autoGroupingByPlatform[platform] = {
+        totalOffers: generated.reduce((n, g) => n + g.offers, 0),
+        groupCount: generated.length,
+        pendingOffers: generated.filter((g) => g.pending).reduce((n, g) => n + g.offers, 0),
+        pendingGroups: generated.filter((g) => g.pending).length,
+      };
+    }
+    return json(res, 200, { platform: platformMeta(), platforms: allPlatforms(), groups, products,
+      autoGrouping: autoGroupingByPlatform.claude, autoGroupingByPlatform });
   }
 
   const prodDetail = pathname.match(/^\/api\/products\/([a-z0-9-]+)\/offers$/);
   if (prodDetail && method === 'GET') {
     const key = prodDetail[1];
-    const meta = getProduct(key);
+    const auto = automaticGroup(key);
+    const meta = auto || getProduct(key);
     if (!meta) return json(res, 404, { error: '未知商品' });
-    const rows = productsByProductKey(key, {
+    const options = {
       inStockOnly: q.get('in_stock') === '1',
       sort: q.get('sort') || 'price',
-    });
+    };
+    const rows = auto ? automaticOffers(auto, options) : productsByProductKey(key, options);
     const band = meta.band || null;
     const flagged = rows.map((o) => {
       let suspect = null;
@@ -258,6 +369,7 @@ async function handleApi(req, res, url) {
       product: {
         key: meta.key, name: meta.name, spec: meta.spec, note: meta.note || '',
         group: meta.group, band,
+        automatic: !!meta.automatic, pending: !!meta.pending, attributes: meta.attributes || null,
       },
       warrantyLabels: WARRANTY_LABEL,
       offers: flagged,
@@ -312,6 +424,7 @@ async function handleApi(req, res, url) {
   const clusterMatch = pathname.match(/^\/api\/products\/([a-z0-9-]+)\/clusters$/);
   if (clusterMatch && method === 'GET') {
     const key = clusterMatch[1];
+    if (/^auto-(openai|claude)-/.test(key)) return json(res, 400, { error: '自动分组已直接展示组内报价，请关闭同款聚合' });
     const meta = getProduct(key);
     if (!meta) return json(res, 404, { error: '未知商品' });
     const rows = productsByProductKey(key, {
@@ -328,6 +441,9 @@ async function handleApi(req, res, url) {
 
   const trendMatch = pathname.match(/^\/api\/products\/([a-z0-9-]+)\/trend$/);
   if (trendMatch && method === 'GET') {
+    if (/^auto-(openai|claude)-/.test(trendMatch[1])) {
+      return json(res, 200, { points: [], stats: null, note: '自动分组试用暂不提供历史走势' });
+    }
     const hours = Math.min(Number(q.get('hours')) || 48, 24 * 30);
     return json(res, 200, productTrend(trendMatch[1], { hours }));
   }

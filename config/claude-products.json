@@ -1,0 +1,196 @@
+{
+  "platformMeta": {
+    "key": "claude",
+    "name": "Claude",
+    "desc": "Pro / Max / 普通账号 / 认证服务",
+    "order": 2
+  },
+  "groups": [
+    { "key": "account", "name": "成品账号", "order": 1 },
+    { "key": "charge", "name": "代充订阅", "order": 2 },
+    { "key": "sms", "name": "接码验证", "order": 3 },
+    { "key": "service", "name": "认证服务", "order": 4 },
+    { "key": "api", "name": "API 额度", "order": 5 },
+    { "key": "other", "name": "其他规格", "order": 6 }
+  ],
+  "products": [
+    {
+      "key": "claude-free", "group": "account", "order": 10,
+      "name": "Claude 普通号 / Free",
+      "spec": "普通账号 · 不含付费订阅 · KYC 状态以商品说明为准",
+      "note": "免 KYC 开通资格不代表已经通过 KYC；邮箱和注册环境按商家说明区分"
+    },
+    {
+      "key": "claude-free-kyc", "group": "account", "order": 11,
+      "name": "Claude 普通号 · 已过 KYC",
+      "spec": "商家标注已认证的普通账号 · 不含付费订阅",
+      "note": "与 KYC 代认证服务分开展示；认证地区和邮箱以商品说明为准"
+    },
+    {
+      "key": "claude-pro-short", "group": "account", "order": 12,
+      "name": "Claude Pro 短期 / 日抛号",
+      "spec": "7 天号 / 日抛 / 速刷 · 商家通常只保首登",
+      "note": "标题所写订阅剩余时间不等于售后保障时间"
+    },
+    {
+      "key": "claude-pro-account", "group": "account", "order": 13,
+      "name": "Claude Pro 成品号",
+      "spec": "直接交付 Pro 账号 · 邮箱、认证状态和质保按商品说明",
+      "note": "与需要自备账号的代充分开展示"
+    },
+    {
+      "key": "claude-max-5x-account", "group": "account", "order": 14,
+      "name": "Claude Max 5x 成品号",
+      "spec": "商家标注 Max 5x · 直接交付账号",
+      "note": "认证状态、剩余订阅和售后以商品说明为准"
+    },
+    {
+      "key": "claude-max-20x-account", "group": "account", "order": 15,
+      "name": "Claude Max 20x 成品号",
+      "spec": "商家标注 Max 20x · 直接交付账号",
+      "note": "认证状态、剩余订阅和售后以商品说明为准"
+    },
+    {
+      "key": "claude-shared", "group": "account", "order": 16,
+      "name": "Claude 共享 / 合租",
+      "spec": "商家标注共享、合租或拼车",
+      "note": "套餐和共享人数可能不同，购买前查看完整说明"
+    },
+    {
+      "key": "claude-account-other", "group": "account", "order": 17,
+      "name": "Claude 账号 · 其他",
+      "spec": "已明确为 Claude 账号，但标题未说明可归类的套餐",
+      "note": "需要查看商品说明确认规格"
+    },
+    {
+      "key": "claude-pro-charge", "group": "charge", "order": 20,
+      "name": "Claude Pro 代充 / CDK",
+      "spec": "自备账号充值 · 直充 / 卡密 / 自助兑换",
+      "note": "是否支持续费、是否需要已过 KYC 账号，以商家说明为准"
+    },
+    {
+      "key": "claude-max-5x-charge", "group": "charge", "order": 21,
+      "name": "Claude Max 5x 代充",
+      "spec": "商家标注 Max 5x · 自备账号充值",
+      "note": "充值渠道和售后条款按商品说明区分"
+    },
+    {
+      "key": "claude-max-20x-charge", "group": "charge", "order": 22,
+      "name": "Claude Max 20x 代充",
+      "spec": "商家标注 Max 20x · 自备账号充值",
+      "note": "充值渠道和售后条款按商品说明区分"
+    },
+    {
+      "key": "claude-sms-once", "group": "sms", "order": 30,
+      "name": "Claude 接码 · 单次",
+      "spec": "注册 / 手机验证 · 单次验证码或兑换码",
+      "note": "仅提供接码服务，不包含 Claude 账号或订阅"
+    },
+    {
+      "key": "claude-sms-long", "group": "sms", "order": 31,
+      "name": "Claude 接码 · 长效",
+      "spec": "10～30 天等有效期 · 可二次接码，具体以标题为准",
+      "note": "接码有效期与账号使用期限不同"
+    },
+    {
+      "key": "claude-kyc-service", "group": "service", "order": 40,
+      "name": "Claude KYC 认证服务",
+      "spec": "为已有账号代认证 / 实名认证 · 按地区区分",
+      "note": "提供认证服务，不交付已认证账号"
+    },
+    {
+      "key": "claude-kyc-link", "group": "service", "order": 41,
+      "name": "Claude KYC 提链",
+      "spec": "提取认证链接 · 不代表完成认证",
+      "note": "与完整 KYC 认证服务分开展示"
+    },
+    {
+      "key": "claude-api-credit", "group": "api", "order": 50,
+      "name": "Claude API Key / Token 额度",
+      "spec": "第三方渠道 · 按 Token 量和有效期，以商家标题为准",
+      "note": "不属于 Claude Pro / Max 订阅；渠道、可用模型与限制以商品说明为准"
+    },
+    {
+      "key": "claude-other-subscription", "group": "other", "order": 60,
+      "name": "Claude 订阅 · 其他规格",
+      "spec": "6.25x 等商家标注规格，或未明确交付方式的 Pro / Max",
+      "note": "不将未说明的规格强行视为 5x、20x 或代充"
+    }
+  ],
+  "rules": [
+    {
+      "product": "claude-api-credit",
+      "regex": "\\bapi\\b|中转|\\d+\\s*[mk]\\s*token"
+    },
+    {
+      "product": "claude-kyc-link",
+      "aliases": ["代提链", "提取kyc链接", "提链"]
+    },
+    {
+      "product": "claude-sms-long",
+      "regex": "(?=.*(?:接马|接码|接ma|验证码|收码|手机号验证))(?=.*(?:长效|\\d+\\s*[-~～至]\\s*\\d+\\s*天|\\d{2,}\\s*天|二次))"
+    },
+    {
+      "product": "claude-sms-once",
+      "regex": "接马|接码|接ma|验证码|收码|手机号验证"
+    },
+    {
+      "product": "claude-shared",
+      "regex": "合租|拼车|(?<!非)(?<!禁止)(?<!不支持)(?<!不是)共享"
+    },
+    {
+      "product": "claude-free-kyc",
+      "regex": "^(?!.*claude\\s*(?:code\\s*)?(?:pro\\b|max\\s*\\d|\\d+\\s*x))(?=.*(?:普号|普通账号|普通账户|普通帐号|无订阅|free|白号|老号))(?=.*(?:已过k(?:yc)?|(?<!免)kyc认证|kyc\\s*普号))",
+      "excludeAny": ["代充", "充值", "直充", "直冲", "卡充", "卡冲", "秒充", "密钥", "卡密", "cdk", "代认证", "认证服务", "实名认证", "主动触发", "提链"]
+    },
+    {
+      "product": "claude-free",
+      "regex": "^(?!.*claude\\s*(?:code\\s*)?(?:pro\\b|max\\s*\\d|\\d+\\s*x))(?=.*(?:普号|普通账号|普通账户|普通帐号|free|白号|注册号|老号|无订阅))",
+      "excludeAny": ["代充", "充值", "直充", "直冲", "卡充", "卡冲", "秒充", "密钥", "卡密", "cdk", "代认证", "认证服务", "实名认证", "主动触发", "提链"]
+    },
+    {
+      "product": "claude-kyc-service",
+      "regex": "^(?!.*claude\\s*(?:code\\s*)?(?:pro\\b|max))(?=.*(?:kyc|实名认证))(?=.*(?:代认证|认证服务|主动触发|实名认证|kyc\\s*认证))"
+    },
+    {
+      "product": "claude-pro-short",
+      "regex": "(?=.*claude\\s*(?:code\\s*)?pro)(?=.*(?:日抛|速刷|7\\s*天(?:号|成品)|临期))",
+      "excludeAny": ["代充", "充值", "直充", "直冲", "秒充", "卡密", "cdk"]
+    },
+    {
+      "product": "claude-pro-account",
+      "regex": "(?=.*claude\\s*(?:code\\s*)?pro)(?=.*(?:成品|独享|账号|帐号))",
+      "excludeAny": ["代充"]
+    },
+    {
+      "product": "claude-max-5x-account",
+      "regex": "(?=.*(?:max\\s*5(?:\\s*x)?\\b|(?<![\\d.])5\\s*x\\b))(?=.*(?:成品|独享|账号|帐号))",
+      "excludeAny": ["代充"]
+    },
+    {
+      "product": "claude-max-20x-account",
+      "regex": "(?=.*(?:max\\s*20(?:\\s*x)?\\b|(?<![\\d.])20\\s*x\\b))(?=.*(?:成品|独享|账号|帐号))",
+      "excludeAny": ["代充"]
+    },
+    {
+      "product": "claude-pro-charge",
+      "regex": "(?=.*claude\\s*(?:code\\s*)?pro)(?=.*(?:代充|直充|直冲|充值|秒充|卡充|卡冲|卡付|卡密|密钥|cdk))"
+    },
+    {
+      "product": "claude-max-5x-charge",
+      "regex": "(?=.*(?:max\\s*5(?:\\s*x)?\\b|(?<![\\d.])5\\s*x\\b))(?=.*(?:代充|直充|直冲|充值|秒充|卡充|卡冲|卡付|卡密|密钥|cdk))"
+    },
+    {
+      "product": "claude-max-20x-charge",
+      "regex": "(?=.*(?:max\\s*20(?:\\s*x)?\\b|(?<![\\d.])20\\s*x\\b))(?=.*(?:代充|直充|直冲|充值|秒充|卡充|卡冲|卡付|卡密|密钥|cdk))"
+    },
+    {
+      "product": "claude-other-subscription",
+      "regex": "claude\\s*(?:code\\s*)?(?:pro|max|\\d+(?:\\.\\d+)?\\s*x)"
+    },
+    {
+      "product": "claude-account-other",
+      "regex": "成品|账号|帐号|账户|帐户|普号|老号|注册号"
+    }
+  ]
+}
